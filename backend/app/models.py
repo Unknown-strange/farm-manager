@@ -60,6 +60,7 @@ class EggEvent(Base):
     paid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     paid_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    exclude_from_stock: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     voided: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     voided_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
     voided_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -130,6 +131,8 @@ class Setting(Base):
     id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, default=1)
     eggs_per_crate: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
     currency: Mapped[str] = mapped_column(Text, nullable=False, default="GH₵")
+    beginning_eggs: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    beginning_money: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=Decimal("0.00"))
 
     __table_args__ = (
         CheckConstraint("id = 1", name="check_settings_single_row"),

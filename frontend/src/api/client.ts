@@ -1,7 +1,53 @@
 import axios from 'axios'
 
-const rawApiUrl = import.meta.env.VITE_API_URL?.trim() || 'http://localhost:8000'
-export const API_URL = rawApiUrl.replace(/\/+$/, '')
+declare const __BUILD_API_URL__: string | undefined
+
+function resolveApiUrl(): string {
+  const buildUrl = typeof __BUILD_API_URL__ !== 'undefined' ? __BUILD_API_URL__ : ''
+  const rawEnv = (
+    buildUrl ||
+    import.meta.env.VITE_API_URL ||
+    import.meta.env.VITE_BACKEND_URL ||
+    import.meta.env.VITE_API_BASE_URL ||
+    ''
+  ).trim()
+
+  const isLocalPlaceholder =
+    !rawEnv ||
+    rawEnv === 'http://localhost:8000' ||
+    rawEnv === 'http://127.0.0.1:8000'
+
+  if (!isLocalPlaceholder) {
+    let normalized = rawEnv.replace(/\/+$/, '')
+    // If protocol was omitted (e.g. "my-api.onrender.com"), prepend https://
+    if (!/^https?:\/\//i.test(normalized)) {
+      normalized = `https://${normalized}`
+    }
+    // Prevent mixed-content blocks on mobile browsers when frontend is HTTPS
+    if (
+      typeof window !== 'undefined' &&
+      window.location.protocol === 'https:' &&
+      normalized.startsWith('http://') &&
+      !/^http:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\.)/i.test(normalized)
+    ) {
+      normalized = normalized.replace(/^http:\/\//i, 'https://')
+    }
+    return normalized
+  }
+
+  // Fallback when no production URL is configured:
+  // If opened over LAN on mobile (e.g. http://192.168.1.x:5173), point to same LAN host on port 8000
+  if (typeof window !== 'undefined' && window.location.protocol === 'http:') {
+    const host = window.location.hostname
+    if (host && host !== 'localhost' && host !== '127.0.0.1') {
+      return `http://${host}:8000`
+    }
+  }
+
+  return 'http://localhost:8000'
+}
+
+export const API_URL = resolveApiUrl()
 
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -34,4 +80,3 @@ apiClient.interceptors.response.use(
     return Promise.reject(error)
   },
 )
-

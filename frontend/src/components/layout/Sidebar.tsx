@@ -12,6 +12,7 @@ import {
   DollarSign,
   History,
   Moon,
+  BookOpen,
   Users,
   Settings,
   LogOut,
@@ -41,6 +42,7 @@ export const WORKER_NAV_ITEMS: NavItem[] = [
 // Admin Suite items: shown in the Sidebar for Admin
 export const ADMIN_SIDEBAR_NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: <LayoutDashboard size={18} />, permission: 'summary:read_all' },
+  { label: 'Manual Entry', to: '/manual-entry', icon: <BookOpen size={18} />, permission: 'closings:manage' },
   { label: 'Entries', to: '/entries', icon: <List size={18} />, permission: 'events:read_all' },
   { label: 'Expenses', to: '/expenses', icon: <DollarSign size={18} />, permission: 'expenses:read' },
   { label: 'History', to: '/history', icon: <History size={18} />, permission: 'reports:read' },

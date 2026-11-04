@@ -219,6 +219,13 @@ test('Entries daily totals and Summary period filters + Borrowed settlement wiri
 
   const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8')
   assert.ok(indexHtml.includes('Egg Book'), 'index.html title must be Egg Book')
+
+  const beginningSrc = fs.readFileSync(path.join(srcDir, 'pages/BeginningEntry.tsx'), 'utf8')
+  assert.ok(beginningSrc.includes('Set Exact Cash on Hand Now'), 'ManualEntry must allow setting exact cash on hand')
+  assert.ok(beginningSrc.includes('Beginning Eggs We Already Have'), 'ManualEntry must allow setting beginning eggs')
+  assert.ok(beginningSrc.includes('Log Borrowed (Yet to Be Paid)'), 'ManualEntry must allow logging borrowed eggs & money')
+  assert.ok(beginningSrc.includes('Mark as Paid'), 'ManualEntry must allow changing borrowed status to Paid')
+  assert.ok(sidebarSrc.includes("label: 'Manual Entry'"), 'Sidebar must include Manual Entry tab for Admin')
 })
 
 console.log(`\n✅ All ${passed} frontend system instance checks passed!`)

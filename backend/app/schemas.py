@@ -44,6 +44,8 @@ class EventCreate(BaseModel):
     price_per_egg: Optional[Decimal] = Field(None, ge=0)
     amount: Optional[Decimal] = Field(None, ge=0)
     is_borrowed: bool = False
+    exclude_from_stock: bool = False
+    business_date: Optional[date] = None
     note: Optional[str] = None
 
     @model_validator(mode="after")
@@ -104,6 +106,7 @@ class EventResponse(BaseModel):
     paid: bool = True
     paid_by: Optional[int] = None
     paid_at: Optional[datetime] = None
+    exclude_from_stock: bool = False
     note: Optional[str] = None
     occurred_at: datetime
     business_date: date
@@ -123,6 +126,7 @@ class ExpenseCreate(BaseModel):
     name: Optional[str] = None
     quantity: Optional[str] = None
     amount: Decimal = Field(..., ge=0)
+    business_date: Optional[date] = None
 
     @model_validator(mode="after")
     def validate_name_by_category(self):
@@ -200,6 +204,7 @@ class DailyBookResponse(BaseModel):
     cracked: int
     sold: int
     closing: int
+    beginning_money: Decimal = Decimal("0.00")
     revenue: Decimal
     borrowed_amount: Decimal = Decimal("0.00")
     total_sales_amount: Decimal = Decimal("0.00")
@@ -223,6 +228,7 @@ class PeriodSummaryResponse(BaseModel):
     cracked_eggs: int
     sold_eggs: int
     closing_eggs: int
+    beginning_money: Decimal = Decimal("0.00")
     cash_revenue: Decimal
     borrowed_unpaid_amount: Decimal
     borrowed_paid_amount: Decimal
@@ -281,6 +287,8 @@ class SettingsResponse(BaseModel):
     id: int
     eggs_per_crate: int
     currency: str
+    beginning_eggs: int = 0
+    beginning_money: Decimal = Decimal("0.00")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -288,6 +296,9 @@ class SettingsResponse(BaseModel):
 class SettingsUpdate(BaseModel):
     eggs_per_crate: Optional[int] = Field(None, gt=0)
     currency: Optional[str] = Field(None, min_length=1)
+    beginning_eggs: Optional[int] = Field(None, ge=0)
+    beginning_money: Optional[Decimal] = None
+    target_present_money: Optional[Decimal] = None
 
 
 # --- Reports Schemas ---

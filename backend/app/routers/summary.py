@@ -35,14 +35,14 @@ def get_daily_book(
 
 @router.get("/period", response_model=PeriodSummaryResponse)
 def get_period_summary(
-    period: str = Query("week", pattern="^(day|week|month|year|custom)$"),
+    period: str = Query("week", pattern="^(day|week|month|year|all|custom)$"),
     target_date: Optional[date] = Query(None, alias="date"),
     from_date: Optional[date] = Query(None, alias="from"),
     to_date: Optional[date] = Query(None, alias="to"),
     current_user: User = Depends(require_permission(SUMMARY_READ_ALL)),
     db: Session = Depends(get_db),
 ):
-    """Returns aggregated financial and stock summary for day, week, month, year, or custom range."""
+    """Returns aggregated financial and stock summary for day, week, month, year, all-time, or custom range."""
     ref_date = target_date if target_date else get_business_date()
 
     if period == "day":
@@ -59,6 +59,9 @@ def get_period_summary(
     elif period == "year":
         start_date = date(ref_date.year, 1, 1)
         end_date = date(ref_date.year, 12, 31)
+    elif period == "all":
+        start_date = date(2000, 1, 1)
+        end_date = max(ref_date, get_business_date())
     else:
         start_date = from_date if from_date else (ref_date - timedelta(days=6))
         end_date = to_date if to_date else ref_date

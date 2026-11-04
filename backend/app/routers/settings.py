@@ -1,5 +1,6 @@
 """Settings router: farm configurations such as eggs per crate and currency."""
 
+from decimal import Decimal
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -12,6 +13,7 @@ from app.security import (
 )
 from app.permissions import SETTINGS_MANAGE
 from app.services.audit import record_audit
+from app.services.book import calculate_all_time_net_cash_flow
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -19,7 +21,13 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 def get_or_create_settings(db: Session) -> Setting:
     setting = db.get(Setting, 1)
     if not setting:
-        setting = Setting(id=1, eggs_per_crate=30, currency="GH₵")
+        setting = Setting(
+            id=1,
+            eggs_per_crate=30,
+            currency="GH₵",
+            beginning_eggs=0,
+            beginning_money=Decimal("0.00"),
+        )
         db.add(setting)
         db.commit()
         db.refresh(setting)
@@ -41,15 +49,27 @@ def update_settings(
     current_user: User = Depends(require_permission(SETTINGS_MANAGE)),
     db: Session = Depends(get_db),
 ):
-    """Updates farm settings (Admin only)."""
+    """Updates farm settings and manual/beginning egg & money balances (Admin only)."""
     setting = get_or_create_settings(db)
 
-    old_val = {"eggs_per_crate": setting.eggs_per_crate, "currency": setting.currency}
+    old_val = {
+        "eggs_per_crate": setting.eggs_per_crate,
+        "currency": setting.currency,
+        "beginning_eggs": setting.beginning_eggs,
+        "beginning_money": str(setting.beginning_money),
+    }
 
     if payload.eggs_per_crate is not None:
         setting.eggs_per_crate = payload.eggs_per_crate
     if payload.currency is not None:
         setting.currency = payload.currency
+    if payload.beginning_eggs is not None:
+        setting.beginning_eggs = payload.beginning_eggs
+    if payload.beginning_money is not None:
+        setting.beginning_money = round(Decimal(payload.beginning_money), 2)
+    if payload.target_present_money is not None:
+        net_flow = calculate_all_time_net_cash_flow(db)
+        setting.beginning_money = round(Decimal(payload.target_present_money) - net_flow, 2)
 
     record_audit(
         db=db,
@@ -58,7 +78,12 @@ def update_settings(
         table_name="settings",
         record_id="1",
         old_value=old_val,
-        new_value={"eggs_per_crate": setting.eggs_per_crate, "currency": setting.currency},
+        new_value={
+            "eggs_per_crate": setting.eggs_per_crate,
+            "currency": setting.currency,
+            "beginning_eggs": setting.beginning_eggs,
+            "beginning_money": str(setting.beginning_money),
+        },
     )
     db.commit()
     db.refresh(setting)

@@ -40,6 +40,8 @@ def _ensure_borrowed_columns() -> None:
                     conn.execute(text("ALTER TABLE egg_events ADD COLUMN paid_by BIGINT"))
                 if "paid_at" not in cols:
                     conn.execute(text("ALTER TABLE egg_events ADD COLUMN paid_at TIMESTAMP WITH TIME ZONE"))
+                if "exclude_from_stock" not in cols:
+                    conn.execute(text("ALTER TABLE egg_events ADD COLUMN exclude_from_stock BOOLEAN NOT NULL DEFAULT FALSE"))
         if "users" in table_names:
             u_cols = {c["name"] for c in insp.get_columns("users")}
             with engine.begin() as conn:
@@ -49,6 +51,13 @@ def _ensure_borrowed_columns() -> None:
                     conn.execute(text("ALTER TABLE users ADD COLUMN deleted_at TIMESTAMP WITH TIME ZONE"))
                 if "deleted_by" not in u_cols:
                     conn.execute(text("ALTER TABLE users ADD COLUMN deleted_by BIGINT"))
+        if "settings" in table_names:
+            s_cols = {c["name"] for c in insp.get_columns("settings")}
+            with engine.begin() as conn:
+                if "beginning_eggs" not in s_cols:
+                    conn.execute(text("ALTER TABLE settings ADD COLUMN beginning_eggs INTEGER NOT NULL DEFAULT 0"))
+                if "beginning_money" not in s_cols:
+                    conn.execute(text("ALTER TABLE settings ADD COLUMN beginning_money NUMERIC(12, 2) NOT NULL DEFAULT 0.00"))
     except Exception:
         pass
 
@@ -101,11 +110,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS setup
+# CORS setup — allow all HTTP/HTTPS browser origins (PC, mobile, Vercel, Render, LAN IPs)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$|^https://.*\.(onrender\.com|vercel\.app|netlify\.app)$",
+    allow_origin_regex=r"^https?://.*$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

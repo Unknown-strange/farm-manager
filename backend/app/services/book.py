@@ -7,11 +7,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, func, case, and_, or_
 from fastapi import HTTPException, status
 
-from app.models import EggEvent, Expense, DailyClosing, User
+from app.models import EggEvent, Expense, DailyClosing, User, Setting
 
 
 def get_first_opening_override(db: Session) -> int:
-    """Returns the opening_override from the earliest daily_closings row, or 0."""
+    """Returns beginning_eggs from settings plus the earliest daily_closings opening_override (if any)."""
+    setting = db.get(Setting, 1)
+    base_beginning = int(setting.beginning_eggs) if setting and setting.beginning_eggs else 0
+
     stmt = (
         select(DailyClosing.opening_override)
         .where(DailyClosing.opening_override.isnot(None))
@@ -19,14 +22,41 @@ def get_first_opening_override(db: Session) -> int:
         .limit(1)
     )
     result = db.scalar(stmt)
-    return result if result is not None else 0
+    return base_beginning + (result if result is not None else 0)
+
+
+def get_beginning_money(db: Session) -> Decimal:
+    """Returns the manual/beginning cash balance stored in settings."""
+    setting = db.get(Setting, 1)
+    return Decimal(str(setting.beginning_money)) if setting and setting.beginning_money is not None else Decimal("0.00")
+
+
+def calculate_all_time_net_cash_flow(db: Session) -> Decimal:
+    """Calculates all-time paid sales revenue minus all-time non-voided expenses (excluding beginning_money)."""
+    paid_sales = db.scalar(
+        select(
+            func.coalesce(
+                func.sum(
+                    case(
+                        (and_(EggEvent.type == "sold", EggEvent.paid.is_(True)), EggEvent.amount),
+                        else_=0,
+                    )
+                ),
+                0,
+            )
+        ).where(EggEvent.voided.is_(False))
+    ) or 0
+    all_expenses = db.scalar(
+        select(func.coalesce(func.sum(Expense.amount), 0)).where(Expense.voided.is_(False))
+    ) or 0
+    return Decimal(str(paid_sales)) - Decimal(str(all_expenses))
 
 
 def calculate_opening_stock(db: Session, target_date: date) -> int:
     """Calculates the cumulative stock up to the day before target_date."""
     first_override = get_first_opening_override(db)
 
-    # Net change for all dates < target_date
+    # Net change for all dates < target_date (excluding historical debt entries marked exclude_from_stock)
     net_change_case = case(
         (EggEvent.type == "received", EggEvent.eggs),
         (EggEvent.type == "cracked", -EggEvent.eggs),
@@ -37,6 +67,7 @@ def calculate_opening_stock(db: Session, target_date: date) -> int:
     stmt = select(func.coalesce(func.sum(net_change_case), 0)).where(
         EggEvent.business_date < target_date,
         EggEvent.voided.is_(False),
+        EggEvent.exclude_from_stock.is_(False),
     )
     prior_net_change = db.scalar(stmt) or 0
     return first_override + prior_net_change
@@ -45,18 +76,37 @@ def calculate_opening_stock(db: Session, target_date: date) -> int:
 def calculate_daily_book(db: Session, target_date: date) -> Dict[str, Any]:
     """Computes the full daily book for target_date according to the paper-book order."""
     opening = calculate_opening_stock(db, target_date)
+    beginning_money = get_beginning_money(db)
 
     # Egg events aggregates for target_date
-    # revenue = money present (paid sales), borrowed_amount = money owed (unpaid borrowed sales)
+    # Physical stock counts exclude events where exclude_from_stock is True
     events_stmt = select(
         func.coalesce(
-            func.sum(case((EggEvent.type == "received", EggEvent.eggs), else_=0)), 0
+            func.sum(
+                case(
+                    (and_(EggEvent.type == "received", EggEvent.exclude_from_stock.is_(False)), EggEvent.eggs),
+                    else_=0,
+                )
+            ),
+            0,
         ).label("gotten"),
         func.coalesce(
-            func.sum(case((EggEvent.type == "cracked", EggEvent.eggs), else_=0)), 0
+            func.sum(
+                case(
+                    (and_(EggEvent.type == "cracked", EggEvent.exclude_from_stock.is_(False)), EggEvent.eggs),
+                    else_=0,
+                )
+            ),
+            0,
         ).label("cracked"),
         func.coalesce(
-            func.sum(case((EggEvent.type == "sold", EggEvent.eggs), else_=0)), 0
+            func.sum(
+                case(
+                    (and_(EggEvent.type == "sold", EggEvent.exclude_from_stock.is_(False)), EggEvent.eggs),
+                    else_=0,
+                )
+            ),
+            0,
         ).label("sold"),
         func.coalesce(
             func.sum(
@@ -172,6 +222,7 @@ def calculate_daily_book(db: Session, target_date: date) -> Dict[str, Any]:
         "cracked": cracked,
         "sold": sold,
         "closing": closing,
+        "beginning_money": beginning_money,
         "revenue": revenue,
         "borrowed_amount": borrowed_amount,
         "total_sales_amount": total_sales_amount,
@@ -196,16 +247,35 @@ def calculate_period_summary(
     """Computes aggregated book figures across a date range [start_date, end_date],
     including present money vs projected money when borrowed sales are paid."""
     opening_eggs = calculate_opening_stock(db, start_date)
+    beginning_money = get_beginning_money(db)
 
     events_stmt = select(
         func.coalesce(
-            func.sum(case((EggEvent.type == "received", EggEvent.eggs), else_=0)), 0
+            func.sum(
+                case(
+                    (and_(EggEvent.type == "received", EggEvent.exclude_from_stock.is_(False)), EggEvent.eggs),
+                    else_=0,
+                )
+            ),
+            0,
         ).label("gotten_eggs"),
         func.coalesce(
-            func.sum(case((EggEvent.type == "cracked", EggEvent.eggs), else_=0)), 0
+            func.sum(
+                case(
+                    (and_(EggEvent.type == "cracked", EggEvent.exclude_from_stock.is_(False)), EggEvent.eggs),
+                    else_=0,
+                )
+            ),
+            0,
         ).label("cracked_eggs"),
         func.coalesce(
-            func.sum(case((EggEvent.type == "sold", EggEvent.eggs), else_=0)), 0
+            func.sum(
+                case(
+                    (and_(EggEvent.type == "sold", EggEvent.exclude_from_stock.is_(False)), EggEvent.eggs),
+                    else_=0,
+                )
+            ),
+            0,
         ).label("sold_eggs"),
         func.coalesce(
             func.sum(
@@ -280,8 +350,8 @@ def calculate_period_summary(
     total_expenses = feed_expenses + other_expenses
 
     closing_eggs = opening_eggs + gotten_eggs - cracked_eggs - sold_eggs
-    money_left_present = cash_revenue - total_expenses
-    money_left_with_borrowed = total_sales_amount - total_expenses
+    money_left_present = beginning_money + cash_revenue - total_expenses
+    money_left_with_borrowed = beginning_money + total_sales_amount - total_expenses
 
     # Fetch borrowed sales (either in the period OR currently unpaid so admin always sees open credit)
     borrowed_stmt = (
@@ -311,6 +381,7 @@ def calculate_period_summary(
             "paid": r.EggEvent.paid,
             "paid_by": r.EggEvent.paid_by,
             "paid_at": r.EggEvent.paid_at,
+            "exclude_from_stock": r.EggEvent.exclude_from_stock,
             "note": r.EggEvent.note,
             "occurred_at": r.EggEvent.occurred_at,
             "business_date": r.EggEvent.business_date,
@@ -332,6 +403,7 @@ def calculate_period_summary(
         "cracked_eggs": cracked_eggs,
         "sold_eggs": sold_eggs,
         "closing_eggs": closing_eggs,
+        "beginning_money": beginning_money,
         "cash_revenue": cash_revenue,
         "borrowed_unpaid_amount": borrowed_unpaid_amount,
         "borrowed_paid_amount": borrowed_paid_amount,

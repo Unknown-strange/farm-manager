@@ -13,6 +13,7 @@ export interface EggEvent {
   paid?: boolean
   paid_by?: number | null
   paid_at?: string | null
+  exclude_from_stock?: boolean
   note?: string | null
   occurred_at: string
   business_date: string
@@ -31,6 +32,8 @@ export interface CreateEventPayload {
   price_per_egg?: number
   amount?: number | null
   is_borrowed?: boolean
+  exclude_from_stock?: boolean
+  business_date?: string
   note?: string
 }
 
@@ -75,6 +78,9 @@ export const eventsApi = {
 
   markPaid: (id: number) =>
     apiClient.post<EggEvent>(`/events/${id}/pay`).then((r) => r.data),
+
+  markUnpaid: (id: number) =>
+    apiClient.post<EggEvent>(`/events/${id}/unpay`).then((r) => r.data),
 
   voidEvent: (id: number) =>
     apiClient.post<EggEvent>(`/events/${id}/void`).then((r) => r.data),

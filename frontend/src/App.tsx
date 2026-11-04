@@ -20,6 +20,7 @@ import { Entries } from '@/pages/Entries'
 import { Expenses } from '@/pages/Expenses'
 import { History } from '@/pages/History'
 import { EndOfDay } from '@/pages/EndOfDay'
+import { BeginningEntry } from '@/pages/BeginningEntry'
 import { Users } from '@/pages/Users'
 import { Settings } from '@/pages/Settings'
 import { NotFound } from '@/pages/NotFound'
@@ -142,6 +143,22 @@ export default function App() {
                           element={
                             <RequirePermission permission="closings:manage">
                               <EndOfDay />
+                            </RequirePermission>
+                          }
+                        />
+                        <Route
+                          path="manual-entry"
+                          element={
+                            <RequirePermission permission="closings:manage">
+                              <BeginningEntry />
+                            </RequirePermission>
+                          }
+                        />
+                        <Route
+                          path="beginning-entry"
+                          element={
+                            <RequirePermission permission="closings:manage">
+                              <BeginningEntry />
                             </RequirePermission>
                           }
                         />

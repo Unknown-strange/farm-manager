@@ -30,7 +30,7 @@ export interface DailyBookSummary {
   by_worker: WorkerSalesSummary[]
 }
 
-export type SummaryPeriod = 'day' | 'week' | 'month' | 'year' | 'custom'
+export type SummaryPeriod = 'day' | 'week' | 'month' | 'year' | 'all' | 'custom'
 
 export interface PeriodSummary {
   period: SummaryPeriod
@@ -41,6 +41,7 @@ export interface PeriodSummary {
   cracked_eggs: number
   sold_eggs: number
   closing_eggs: number
+  beginning_money?: string | number
   cash_revenue: string | number
   borrowed_unpaid_amount: string | number
   borrowed_paid_amount: string | number

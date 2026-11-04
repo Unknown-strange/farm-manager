@@ -60,7 +60,11 @@ def create_event(
             return existing
 
     today = get_business_date()
-    check_day_not_locked(db, today)
+    granted = settings.role_permissions.get(current_user.role, set())
+    can_edit_all = has_permission(granted, EVENTS_EDIT_ALL)
+
+    target_date = payload.business_date if (payload.business_date and can_edit_all) else today
+    check_day_not_locked(db, target_date)
 
     # 2. Resolve eggs and amount if crates/price_per_crate are provided
     setting = db.get(Setting, 1)
@@ -77,9 +81,11 @@ def create_event(
         elif total_eggs is not None and payload.price_per_egg is not None:
             total_amount = round(Decimal(total_eggs) * Decimal(payload.price_per_egg), 2)
 
-    # Stock feasibility check for egg deductions
-    if payload.type in ("sold", "cracked"):
-        assert_stock_non_negative(db, today, -total_eggs)
+    exclude_from_stock = bool(payload.exclude_from_stock) if can_edit_all else False
+
+    # Stock feasibility check for egg deductions (unless historical debt entry excluded from current physical stock)
+    if payload.type in ("sold", "cracked") and not exclude_from_stock:
+        assert_stock_non_negative(db, target_date, -total_eggs)
 
     is_borrowed = bool(payload.is_borrowed) if payload.type == "sold" else False
     paid = not is_borrowed
@@ -92,9 +98,10 @@ def create_event(
         amount=total_amount,
         is_borrowed=is_borrowed,
         paid=paid,
+        exclude_from_stock=exclude_from_stock,
         note=payload.note,
         occurred_at=datetime.now(timezone.utc),
-        business_date=today,
+        business_date=target_date,
         idempotency_key=idempotency_key,
     )
     db.add(event)
@@ -112,6 +119,7 @@ def create_event(
             "amount": str(event.amount) if event.amount else None,
             "is_borrowed": event.is_borrowed,
             "paid": event.paid,
+            "exclude_from_stock": event.exclude_from_stock,
             "business_date": str(event.business_date),
         },
     )
@@ -129,6 +137,7 @@ def create_event(
         paid=event.paid,
         paid_by=event.paid_by,
         paid_at=event.paid_at,
+        exclude_from_stock=event.exclude_from_stock,
         note=event.note,
         occurred_at=event.occurred_at,
         business_date=event.business_date,
@@ -362,6 +371,68 @@ def mark_borrowed_sale_paid(
         paid=event.paid,
         paid_by=event.paid_by,
         paid_at=event.paid_at,
+        exclude_from_stock=event.exclude_from_stock,
+        note=event.note,
+        occurred_at=event.occurred_at,
+        business_date=event.business_date,
+        voided=event.voided,
+        voided_by=event.voided_by,
+        voided_at=event.voided_at,
+        idempotency_key=event.idempotency_key,
+        created_at=event.created_at,
+    )
+
+
+@router.post("/{event_id}/unpay", response_model=EventResponse)
+def mark_borrowed_sale_unpaid(
+    event_id: int,
+    current_user: User = Depends(require_permission(CLOSINGS_MANAGE)),
+    db: Session = Depends(get_db),
+):
+    """Reverts a borrowed (credit) sale back to unpaid status. Restricted strictly to Admin."""
+    event = db.get(EggEvent, event_id)
+    if not event or event.voided:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"detail": "Event not found", "code": "NOT_FOUND"},
+        )
+
+    if event.type != "sold" or not event.is_borrowed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"detail": "Only borrowed sales can have their paid status changed", "code": "BAD_REQUEST"},
+        )
+
+    old_val = {"is_borrowed": event.is_borrowed, "paid": event.paid}
+    event.paid = False
+    event.paid_by = None
+    event.paid_at = None
+
+    record_audit(
+        db=db,
+        user_id=current_user.id,
+        action="event.mark_unpaid",
+        table_name="egg_events",
+        record_id=str(event.id),
+        old_value=old_val,
+        new_value={"is_borrowed": event.is_borrowed, "paid": False},
+    )
+    db.commit()
+    db.refresh(event)
+
+    user = db.get(User, event.user_id)
+    return EventResponse(
+        id=event.id,
+        user_id=event.user_id,
+        user_name=user.name if user else None,
+        type=event.type,
+        eggs=event.eggs,
+        amount=event.amount,
+        is_borrowed=event.is_borrowed,
+        paid=event.paid,
+        paid_by=event.paid_by,
+        paid_at=event.paid_at,
+        exclude_from_stock=event.exclude_from_stock,
         note=event.note,
         occurred_at=event.occurred_at,
         business_date=event.business_date,

@@ -24,6 +24,7 @@ from app.permissions import (
     EXPENSES_UNDO_OWN,
     EXPENSES_READ,
     EXPENSES_EDIT,
+    has_permission,
 )
 from app.config import settings
 from app.services.audit import record_audit
@@ -48,7 +49,10 @@ def create_expense(
 ):
     """Creates a new expense. Returns minimal payload with undo window to protect financial privacy."""
     today = get_business_date()
-    check_day_not_locked(db, today)
+    granted = settings.role_permissions.get(current_user.role, set())
+    can_edit_expenses = has_permission(granted, EXPENSES_EDIT)
+    target_date = payload.business_date if (payload.business_date and can_edit_expenses) else today
+    check_day_not_locked(db, target_date)
 
     now_utc = datetime.now(timezone.utc)
     undo_until = now_utc + timedelta(minutes=settings.STAFF_EXPENSE_UNDO_MINUTES)
@@ -58,7 +62,7 @@ def create_expense(
         name=payload.name if payload.name else "Feed",
         quantity=payload.quantity,
         amount=payload.amount,
-        business_date=today,
+        business_date=target_date,
         created_by=current_user.id,
         created_at=now_utc,
     )

@@ -22,6 +22,7 @@ export interface CreateExpensePayload {
   name?: string
   quantity?: string
   amount: number
+  business_date?: string
 }
 
 export interface CreateExpenseResponse {

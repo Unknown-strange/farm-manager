@@ -354,5 +354,70 @@ def test_soft_delete_staff_preserves_all_historical_data(client, admin_headers):
     assert del_exp.json()["voided"] is True
 
 
+def test_beginning_entry_balances_and_historical_borrowed_flow(client, admin_headers):
+    """Tests setting beginning eggs & manual money, logging old borrowed sales, and toggling paid/unpaid status."""
+    today = get_business_date().isoformat()
+
+    # 1. Admin sets beginning eggs (300 eggs = 10 crates) and exact present money (GH₵ 1,500.00)
+    patch_res = client.patch(
+        "/settings",
+        json={"beginning_eggs": 300, "target_present_money": "1500.00"},
+        headers=admin_headers,
+    )
+    assert patch_res.status_code == 200
+    assert patch_res.json()["beginning_eggs"] == 300
+
+    # Verify all-time period summary reflects 300 eggs and 1500.00 present money
+    ps1 = client.get(f"/summary/period?period=all&date={today}", headers=admin_headers).json()
+    assert ps1["closing_eggs"] == 300
+    assert float(ps1["money_left_present"]) == 1500.00
+
+    # 2. Admin logs an old borrowed sale (90 eggs, GH₵ 135.00 owed, exclude_from_stock=True)
+    old_borrowed = client.post(
+        "/events",
+        json={
+            "type": "sold",
+            "eggs": 90,
+            "amount": "135.00",
+            "is_borrowed": True,
+            "exclude_from_stock": True,
+            "business_date": "2026-01-15",
+            "note": "Old debtor Kwesi",
+        },
+        headers=admin_headers,
+    )
+    assert old_borrowed.status_code == 201
+    b_id = old_borrowed.json()["id"]
+    assert old_borrowed.json()["is_borrowed"] is True
+    assert old_borrowed.json()["paid"] is False
+    assert old_borrowed.json()["exclude_from_stock"] is True
+
+    # Verify stock is still 300 (since exclude_from_stock=True), present money is 1500.00, and projected money is 1635.00
+    ps2 = client.get(f"/summary/period?period=all&date={today}", headers=admin_headers).json()
+    assert ps2["closing_eggs"] == 300
+    assert float(ps2["money_left_present"]) == 1500.00
+    assert float(ps2["borrowed_unpaid_amount"]) == 135.00
+    assert float(ps2["money_left_with_borrowed"]) == 1635.00
+
+    # 3. Admin marks the borrowed entry as Paid -> present money increases to 1635.00
+    pay_res = client.post(f"/events/{b_id}/pay", headers=admin_headers)
+    assert pay_res.status_code == 200
+    assert pay_res.json()["paid"] is True
+
+    ps3 = client.get(f"/summary/period?period=all&date={today}", headers=admin_headers).json()
+    assert float(ps3["money_left_present"]) == 1635.00
+    assert float(ps3["borrowed_unpaid_amount"]) == 0.00
+
+    # 4. Admin can revert status back to Unpaid if needed -> present money returns to 1500.00
+    unpay_res = client.post(f"/events/{b_id}/unpay", headers=admin_headers)
+    assert unpay_res.status_code == 200
+    assert unpay_res.json()["paid"] is False
+
+    ps4 = client.get(f"/summary/period?period=all&date={today}", headers=admin_headers).json()
+    assert float(ps4["money_left_present"]) == 1500.00
+    assert float(ps4["borrowed_unpaid_amount"]) == 135.00
+
+
+
 
 
