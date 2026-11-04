@@ -19,3 +19,10 @@ postgres_data/
 .vscode/
 .idea/
 
+BACKEND_FLOW.md
+DATABASE_FLOW.md
+PLANNING.md
+FRONTEND_FLOW.md
+
+
+
