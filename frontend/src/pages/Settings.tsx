@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Loader2, KeyRound, Shield, Sliders, CheckCircle2 } from 'lucide-react'
+import { Loader2, KeyRound, Shield, Sliders, CheckCircle2, Eye, EyeOff } from 'lucide-react'
 import { TopBar } from '@/components/layout/TopBar'
 import { useAuth } from '@/auth/AuthContext'
 import { useCan } from '@/auth/useCan'
@@ -32,6 +32,9 @@ export function Settings() {
   const [activeTab, setActiveTab] = useState<'profile' | 'farm'>('profile')
   const [passwordError, setPasswordError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   // Farm settings state
   const isAdmin = can('settings:manage')
@@ -183,12 +186,23 @@ export function Settings() {
                   {/* Current Password */}
                   <div className="space-y-1.5">
                     <label className="block text-label-sm text-ink">Current Password</label>
-                    <input
-                      type="password"
-                      placeholder="Enter your current password"
-                      className={`input-base ${errors.currentPassword ? 'border-danger' : ''}`}
-                      {...register('currentPassword')}
-                    />
+                    <div className="relative">
+                      <input
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        placeholder="Enter your current password"
+                        className={`input-base pr-10 ${errors.currentPassword ? 'border-danger' : ''}`}
+                        {...register('currentPassword')}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink p-1 rounded transition-colors focus:outline-none"
+                        tabIndex={-1}
+                        aria-label={showCurrentPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
                     {errors.currentPassword && (
                       <p className="text-helper-xs text-danger">{errors.currentPassword.message}</p>
                     )}
@@ -197,12 +211,23 @@ export function Settings() {
                   {/* New Password */}
                   <div className="space-y-1.5">
                     <label className="block text-label-sm text-ink">New Password</label>
-                    <input
-                      type="password"
-                      placeholder="Minimum 6 characters"
-                      className={`input-base ${errors.newPassword ? 'border-danger' : ''}`}
-                      {...register('newPassword')}
-                    />
+                    <div className="relative">
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        placeholder="Minimum 6 characters"
+                        className={`input-base pr-10 ${errors.newPassword ? 'border-danger' : ''}`}
+                        {...register('newPassword')}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink p-1 rounded transition-colors focus:outline-none"
+                        tabIndex={-1}
+                        aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
                     {errors.newPassword && (
                       <p className="text-helper-xs text-danger">{errors.newPassword.message}</p>
                     )}
@@ -211,12 +236,23 @@ export function Settings() {
                   {/* Confirm Password */}
                   <div className="space-y-1.5">
                     <label className="block text-label-sm text-ink">Confirm New Password</label>
-                    <input
-                      type="password"
-                      placeholder="Re-enter your new password"
-                      className={`input-base ${errors.confirmPassword ? 'border-danger' : ''}`}
-                      {...register('confirmPassword')}
-                    />
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        placeholder="Re-enter your new password"
+                        className={`input-base pr-10 ${errors.confirmPassword ? 'border-danger' : ''}`}
+                        {...register('confirmPassword')}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink p-1 rounded transition-colors focus:outline-none"
+                        tabIndex={-1}
+                        aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
                     {errors.confirmPassword && (
                       <p className="text-helper-xs text-danger">{errors.confirmPassword.message}</p>
                     )}

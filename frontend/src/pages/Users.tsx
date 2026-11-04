@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { UserPlus, KeyRound, UserCheck, UserX, Trash2, ShieldCheck, Loader2 } from 'lucide-react'
+import { UserPlus, KeyRound, UserCheck, UserX, Trash2, ShieldCheck, Loader2, Eye, EyeOff } from 'lucide-react'
 import { TopBar } from '@/components/layout/TopBar'
 import { DataTable } from '@/components/DataTable'
 import { Modal } from '@/components/Modal'
@@ -45,6 +45,10 @@ export function Users() {
   const [newTempPassword, setNewTempPassword] = useState('')
   const [resetError, setResetError] = useState('')
   const [isResetting, setIsResetting] = useState(false)
+
+  // Password visibility toggles
+  const [showAddPassword, setShowAddPassword] = useState(false)
+  const [showResetPassword, setShowResetPassword] = useState(false)
 
   const [selectedRole, setSelectedRole] = useState<'staff' | 'admin'>('staff')
 
@@ -229,6 +233,7 @@ export function Users() {
                   setResetTarget(u)
                   setNewTempPassword('')
                   setResetError('')
+                  setShowResetPassword(false)
                 }}
                 title="Reset Password"
                 className="p-1.5 rounded hover:bg-canvas text-muted hover:text-ink transition-colors"
@@ -276,6 +281,7 @@ export function Users() {
             onClick={() => {
               reset({ role: 'staff' })
               setAddError('')
+              setShowAddPassword(false)
               setIsAddModalOpen(true)
             }}
             className="btn-primary"
@@ -371,12 +377,23 @@ export function Users() {
           {/* Initial Password */}
           <div className="space-y-1.5">
             <label className="block text-label-sm text-ink">Initial Password</label>
-            <input
-              type="password"
-              placeholder="Minimum 6 characters"
-              className={`input-base ${errors.password ? 'border-danger' : ''}`}
-              {...register('password')}
-            />
+            <div className="relative">
+              <input
+                type={showAddPassword ? 'text' : 'password'}
+                placeholder="Minimum 6 characters"
+                className={`input-base pr-10 ${errors.password ? 'border-danger' : ''}`}
+                {...register('password')}
+              />
+              <button
+                type="button"
+                onClick={() => setShowAddPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink p-1 rounded transition-colors focus:outline-none"
+                tabIndex={-1}
+                aria-label={showAddPassword ? 'Hide password' : 'Show password'}
+              >
+                {showAddPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
             {errors.password && (
               <p className="text-helper-xs text-danger">{errors.password.message}</p>
             )}
@@ -461,14 +478,25 @@ export function Users() {
 
           <div className="space-y-1.5">
             <label className="block text-label-sm text-ink">New Password</label>
-            <input
-              type="password"
-              placeholder="Minimum 6 characters"
-              value={newTempPassword}
-              onChange={(e) => setNewTempPassword(e.target.value)}
-              className="input-base"
-              autoFocus
-            />
+            <div className="relative">
+              <input
+                type={showResetPassword ? 'text' : 'password'}
+                placeholder="Minimum 6 characters"
+                value={newTempPassword}
+                onChange={(e) => setNewTempPassword(e.target.value)}
+                className="input-base pr-10"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowResetPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink p-1 rounded transition-colors focus:outline-none"
+                tabIndex={-1}
+                aria-label={showResetPassword ? 'Hide password' : 'Show password'}
+              >
+                {showResetPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
