@@ -53,11 +53,44 @@ def _ensure_borrowed_columns() -> None:
         pass
 
 
+def _auto_initialize_database() -> None:
+    """Automatically creates tables, applies column upgrades, and seeds the default admin & settings if the database is empty."""
+    try:
+        from app.database import Base, SessionLocal
+        from app.models import User, Setting
+        from app.security import hash_password
+        from sqlalchemy import select
+
+        Base.metadata.create_all(bind=engine)
+        _ensure_borrowed_columns()
+
+        if settings.SEED_ADMIN_USERNAME and settings.SEED_ADMIN_PASSWORD:
+            with SessionLocal() as db:
+                admin_username = settings.SEED_ADMIN_USERNAME.strip().lower()
+                existing_admin = db.scalar(select(User).where(User.username == admin_username))
+                if not existing_admin:
+                    db.add(
+                        User(
+                            name="Farm Administrator",
+                            username=admin_username,
+                            password_hash=hash_password(settings.SEED_ADMIN_PASSWORD),
+                            role="admin",
+                            is_active=True,
+                            is_deleted=False,
+                        )
+                    )
+                if not db.get(Setting, 1):
+                    db.add(Setting(id=1, eggs_per_crate=30, currency="GH₵"))
+                db.commit()
+    except Exception:
+        pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup validation: fail fast if permission string has any typo
     settings.validate_permissions()
-    _ensure_borrowed_columns()
+    _auto_initialize_database()
     yield
 
 
@@ -72,7 +105,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$|^https://.*\.(onrender\.com|vercel\.app|netlify\.app)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

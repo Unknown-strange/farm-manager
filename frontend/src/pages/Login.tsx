@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
+import { API_URL } from '@/api/client'
 
 const schema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -44,7 +45,7 @@ export function Login() {
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { detail?: string } } }
       if (!axiosErr.response) {
-        setServerError('Cannot connect to backend server. Make sure the API is running at http://localhost:8000.')
+        setServerError(`Cannot connect to backend server (${API_URL}). Please verify the API is online and CORS is allowed.`)
       } else {
         const detail = axiosErr.response?.data?.detail
         setServerError(typeof detail === 'string' ? detail : 'Wrong username or password.')

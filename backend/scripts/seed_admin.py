@@ -44,28 +44,31 @@ def seed():
             db.refresh(admin)
             print(f"✅ Created initial admin user '{admin_username}' (ID: {admin.id}).")
 
-        # 2. Seed or update default staff user
+        # 2. Seed or update default staff user (only if configured)
         staff_username = settings.SEED_STAFF_USERNAME.strip().lower()
         staff_password = settings.SEED_STAFF_PASSWORD
-        staff = db.scalar(select(User).where(User.username == staff_username))
-        if staff:
-            staff.password_hash = hash_password(staff_password)
-            staff.role = "staff"
-            staff.is_active = True
-            db.commit()
-            print(f"✅ Updated existing staff user '{staff_username}' (ID: {staff.id}) with credentials from .env.")
+        if staff_username and staff_password:
+            staff = db.scalar(select(User).where(User.username == staff_username))
+            if staff:
+                staff.password_hash = hash_password(staff_password)
+                staff.role = "staff"
+                staff.is_active = True
+                db.commit()
+                print(f"✅ Updated existing staff user '{staff_username}' (ID: {staff.id}) with credentials from .env.")
+            else:
+                staff = User(
+                    name="Farm Staff Member",
+                    username=staff_username,
+                    password_hash=hash_password(staff_password),
+                    role="staff",
+                    is_active=True,
+                )
+                db.add(staff)
+                db.commit()
+                db.refresh(staff)
+                print(f"✅ Created initial staff user '{staff_username}' (ID: {staff.id}).")
         else:
-            staff = User(
-                name="Farm Staff Member",
-                username=staff_username,
-                password_hash=hash_password(staff_password),
-                role="staff",
-                is_active=True,
-            )
-            db.add(staff)
-            db.commit()
-            db.refresh(staff)
-            print(f"✅ Created initial staff user '{staff_username}' (ID: {staff.id}).")
+            print("ℹ️  Skipping initial staff user seed (SEED_STAFF_USERNAME not set).")
 
         # 3. Seed default settings
         setting = db.get(Setting, 1)
