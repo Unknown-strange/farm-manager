@@ -45,7 +45,9 @@ export function Login() {
       navigate(dest, { replace: true })
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { detail?: string } } }
-      if (!axiosErr.response) {
+      if (!API_URL) {
+        setServerError('VITE_API_URL is not configured in this deployment. Add VITE_API_URL in your hosting environment variables and redeploy.')
+      } else if (!axiosErr.response) {
         setServerError(`Cannot connect to backend server (${API_URL}). Please verify the API is online and CORS is allowed.`)
       } else {
         const detail = axiosErr.response?.data?.detail

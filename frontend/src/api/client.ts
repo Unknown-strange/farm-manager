@@ -12,39 +12,28 @@ function resolveApiUrl(): string {
     ''
   ).trim()
 
-  const isLocalPlaceholder =
-    !rawEnv ||
-    rawEnv === 'http://localhost:8000' ||
-    rawEnv === 'http://127.0.0.1:8000'
-
-  if (!isLocalPlaceholder) {
-    let normalized = rawEnv.replace(/\/+$/, '')
-    // If protocol was omitted (e.g. "my-api.onrender.com"), prepend https://
-    if (!/^https?:\/\//i.test(normalized)) {
-      normalized = `https://${normalized}`
-    }
-    // Prevent mixed-content blocks on mobile browsers when frontend is HTTPS
-    if (
-      typeof window !== 'undefined' &&
-      window.location.protocol === 'https:' &&
-      normalized.startsWith('http://') &&
-      !/^http:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\.)/i.test(normalized)
-    ) {
-      normalized = normalized.replace(/^http:\/\//i, 'https://')
-    }
-    return normalized
+  if (!rawEnv) {
+    return ''
   }
 
-  // Fallback when no production URL is configured:
-  // If opened over LAN on mobile (e.g. http://192.168.1.x:5173), point to same LAN host on port 8000
-  if (typeof window !== 'undefined' && window.location.protocol === 'http:') {
-    const host = window.location.hostname
-    if (host && host !== 'localhost' && host !== '127.0.0.1') {
-      return `http://${host}:8000`
-    }
+  let normalized = rawEnv.replace(/\/+$/, '')
+
+  // If protocol was omitted (e.g. "my-api.onrender.com"), prepend https://
+  if (!/^https?:\/\//i.test(normalized)) {
+    normalized = `https://${normalized}`
   }
 
-  return 'http://localhost:8000'
+  // Prevent mixed-content blocks on mobile/Chrome/Safari when frontend is HTTPS
+  if (
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'https:' &&
+    normalized.startsWith('http://') &&
+    !/^http:\/\/(localhost|127\.0\.0\.1)/i.test(normalized)
+  ) {
+    normalized = normalized.replace(/^http:\/\//i, 'https://')
+  }
+
+  return normalized
 }
 
 export const API_URL = resolveApiUrl()

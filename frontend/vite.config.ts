@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
   const resolvedBuildApiUrl =
     candidateUrls
       .map((v) => v?.trim())
-      .find((v) => v && v !== 'http://localhost:8000' && v !== 'http://127.0.0.1:8000') || ''
+      .find((v) => Boolean(v)) || ''
 
   return {
     plugins: [react()],
