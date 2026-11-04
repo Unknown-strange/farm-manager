@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Egg Book - Worker Station</title>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration verbatim from Design System -->
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-surface": "#1d1b18",
+            "on-secondary-fixed": "#002204",
+            "surface-container-high": "#ede7e2",
+            "surface-variant": "#e7e1dc",
+            "on-tertiary": "#ffffff",
+            "on-primary-fixed-variant": "#6a3c00",
+            "secondary": "#1b6d24",
+            "error": "#ba1a1a",
+            "surface-container-low": "#f9f2ed",
+            "primary-fixed-dim": "#ffb871",
+            "on-primary": "#ffffff",
+            "secondary-fixed": "#a3f69c",
+            "inverse-primary": "#ffb871",
+            "on-secondary-container": "#217128",
+            "inverse-on-surface": "#f6f0ea",
+            "on-secondary": "#ffffff",
+            "tertiary-container": "#2e74d0",
+            "surface-container-highest": "#e7e1dc",
+            "error-container": "#ffdad6",
+            "surface-container": "#f3ede7",
+            "surface-tint": "#8b5000",
+            "secondary-fixed-dim": "#88d982",
+            "primary-fixed": "#ffdcbe",
+            "tertiary-fixed": "#d6e3ff",
+            "primary-container": "#ab6300",
+            "surface-container-lowest": "#ffffff",
+            "tertiary-fixed-dim": "#a9c7ff",
+            "on-tertiary-container": "#fefcff",
+            "on-error": "#ffffff",
+            "primary": "#884e00",
+            "on-primary-fixed": "#2d1600",
+            "background": "#fff8f3",
+            "surface-dim": "#dfd9d4",
+            "surface": "#fff8f3",
+            "outline": "#867465",
+            "on-background": "#1d1b18",
+            "inverse-surface": "#32302d",
+            "on-primary-container": "#fffbff",
+            "outline-variant": "#d8c3b1",
+            "on-tertiary-fixed": "#001b3d",
+            "secondary-container": "#a0f399",
+            "on-tertiary-fixed-variant": "#00468c",
+            "on-secondary-fixed-variant": "#005312",
+            "surface-bright": "#fff8f3",
+            "on-surface-variant": "#534437",
+            "tertiary": "#005bb3",
+            "on-error-container": "#93000a"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-lg": "1.5rem",
+            "space-sm": "0.5rem",
+            "gutter": "1.5rem",
+            "space-xl": "2rem",
+            "margin": "2rem",
+            "space-md": "1rem",
+            "space-xs": "0.25rem"
+          },
+          "fontFamily": {
+            "title-section": ["Inter", "sans-serif"],
+            "body-medium": ["Inter", "sans-serif"],
+            "display-stat-md": ["Inter", "sans-serif"],
+            "table-header": ["Inter", "sans-serif"],
+            "table-cell": ["Inter", "sans-serif"],
+            "helper-xs": ["Inter", "sans-serif"],
+            "title-page": ["Inter", "sans-serif"],
+            "label-sm": ["Inter", "sans-serif"],
+            "body-default": ["Inter", "sans-serif"],
+            "currency-tabular": ["Inter", "sans-serif"],
+            "display-stat-lg": ["Inter", "sans-serif"]
+          },
+          "fontSize": {
+            "title-section": ["18px", { "lineHeight": "26px", "fontWeight": "600" }],
+            "body-medium": ["15px", { "lineHeight": "22px", "fontWeight": "500" }],
+            "display-stat-md": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "table-header": ["12px", { "lineHeight": "16px", "letterSpacing": "0.04em", "fontWeight": "600" }],
+            "table-cell": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "helper-xs": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "title-page": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "label-sm": ["13px", { "lineHeight": "18px", "fontWeight": "500" }],
+            "body-default": ["15px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "currency-tabular": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "display-stat-lg": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #e7e1dc;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- ===============================
+       SHARED COMPONENT: SideNavBar (Fixed 240px Sidebar)
+       Adhering strictly to JSON styles and Worker layout specifications
+       =============================== -->
+<aside class="fixed top-0 left-0 h-screen w-60 z-30 flex flex-col justify-between p-space-md bg-surface-container-lowest border-r border-outline-variant">
+<div class="flex flex-col gap-6">
+<!-- Header / Brand Logo & Station Badge -->
+<div class="px-2 pt-1 flex flex-col gap-1.5">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm">
+<span class="material-symbols-outlined text-[20px]" data-icon="egg" style="font-variation-settings: 'FILL' 1;">egg</span>
+</div>
+<div>
+<h1 class="font-title-page text-title-page text-primary font-bold tracking-tight leading-none">Egg Book</h1>
+<span class="font-helper-xs text-helper-xs text-on-surface-variant font-medium">Worker Station</span>
+</div>
+</div>
+<div class="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-container-low border border-outline-variant w-fit">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+<span class="font-helper-xs text-helper-xs text-on-surface-variant font-medium">Live Terminal • Accra Hub</span>
+</div>
+</div>
+<!-- Action Button / CTA -->
+<button class="w-full h-10 px-3 rounded-lg bg-primary hover:bg-primary-container text-on-primary flex items-center justify-center gap-2 font-body-medium text-body-medium shadow-sm transition-colors duration-150 active:scale-[0.99]">
+<span class="material-symbols-outlined text-[18px]" data-icon="add_circle">add_circle</span>
+<span>Log New Entry</span>
+</button>
+<!-- Worker Navigation Items -->
+<nav aria-label="Worker station navigation" class="flex flex-col gap-1">
+<!-- Home (ACTIVE STATE matching JSON execution logic) -->
+<a aria-current="page" class="bg-surface-container-low text-primary font-title-section border-l-4 border-primary rounded-r-lg px-3 py-2 flex items-center gap-3 active:scale-[0.99] transition-transform duration-100 ease-out" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="home" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-body-medium text-body-medium">Home</span>
+</a>
+<!-- Record Sale -->
+<a class="text-on-surface-variant font-body-default hover:text-on-surface hover:bg-surface-container-high rounded-lg px-3 py-2 flex items-center gap-3 transition-colors duration-150 active:scale-[0.99]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="point_of_sale">point_of_sale</span>
+<span class="font-body-default text-body-default">Record Sale</span>
+</a>
+<!-- Eggs Received -->
+<a class="text-on-surface-variant font-body-default hover:text-on-surface hover:bg-surface-container-high rounded-lg px-3 py-2 flex items-center gap-3 transition-colors duration-150 active:scale-[0.99]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="inventory_2">inventory_2</span>
+<span class="font-body-default text-body-default">Eggs Received</span>
+</a>
+<!-- Cracked Eggs -->
+<a class="text-on-surface-variant font-body-default hover:text-on-surface hover:bg-surface-container-high rounded-lg px-3 py-2 flex items-center gap-3 transition-colors duration-150 active:scale-[0.99]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="broken_image">broken_image</span>
+<span class="font-body-default text-body-default">Cracked Eggs</span>
+</a>
+<!-- Add Expense -->
+<a class="text-on-surface-variant font-body-default hover:text-on-surface hover:bg-surface-container-high rounded-lg px-3 py-2 flex items-center gap-3 transition-colors duration-150 active:scale-[0.99]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="font-body-default text-body-default">Add Expense</span>
+</a>
+<!-- My Entries -->
+<a class="text-on-surface-variant font-body-default hover:text-on-surface hover:bg-surface-container-high rounded-lg px-3 py-2 flex items-center gap-3 transition-colors duration-150 active:scale-[0.99]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="menu_book">menu_book</span>
+<span class="font-body-default text-body-default">My Entries</span>
+</a>
+</nav>
+</div>
+<!-- Footer Controls -->
+<div class="pt-4 border-t border-outline-variant flex flex-col gap-1">
+<a class="text-on-surface-variant font-body-default hover:text-on-surface hover:bg-surface-container-high rounded-lg px-3 py-2 flex items-center gap-3 transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+<span class="font-body-default text-body-default">Settings</span>
+</a>
+<a class="text-on-surface-variant hover:text-error hover:bg-error-container/40 rounded-lg px-3 py-2 flex items-center gap-3 transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="logout">logout</span>
+<span class="font-body-default text-body-default">Log out</span>
+</a>
+</div>
+</aside>
+<!-- ===============================
+       SHARED COMPONENT: TopNavBar (Sticky Top Navigation Bar)
+       Pl-60 applied to offset the fixed 240px sidebar seamlessly
+       =============================== -->
+<header class="sticky top-0 right-0 z-20 w-full pl-60 bg-surface-container-lowest border-b border-outline-variant shadow-sm">
+<div class="flex justify-between items-center h-16 px-space-xl w-full">
+<!-- Greeting & Current Day Context -->
+<div class="flex flex-col">
+<h2 class="font-title-page text-title-page text-on-surface font-semibold tracking-tight">Good morning, Kwame</h2>
+<span class="font-helper-xs text-helper-xs text-on-surface-variant">Today: Thursday, 24 October 2024</span>
+</div>
+<!-- Right Trailing Profile & Operational Badges -->
+<div class="flex items-center gap-4">
+<!-- Date Navigator Action Pills -->
+<div class="hidden lg:flex items-center bg-surface-container-low rounded-lg p-1 border border-outline-variant gap-1 text-on-surface-variant">
+<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface transition-colors duration-150" title="Previous Date">
+<span class="material-symbols-outlined text-[18px]" data-icon="arrow_back_ios">arrow_back_ios</span>
+</button>
+<span class="flex items-center gap-1.5 px-2 font-label-sm text-label-sm text-on-surface font-medium">
+<span class="material-symbols-outlined text-[16px] text-primary" data-icon="calendar_today">calendar_today</span>
+            Today
+          </span>
+<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface transition-colors duration-150 opacity-40 cursor-not-allowed" disabled="" title="Next Date">
+<span class="material-symbols-outlined text-[18px]" data-icon="arrow_forward_ios">arrow_forward_ios</span>
+</button>
+</div>
+<!-- Shift Indicator Badge -->
+<div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container border border-outline-variant">
+<span class="w-2 h-2 rounded-full bg-secondary-container border border-secondary animate-pulse"></span>
+<span class="font-label-sm text-label-sm text-on-surface font-medium">Shift: Morning (07:00 - 15:00)</span>
+</div>
+<!-- Quick Notifications Icon -->
+<button aria-label="Notifications" class="relative p-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors duration-150">
+<span class="material-symbols-outlined text-[22px]" data-icon="notifications">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary ring-2 ring-surface-container-lowest"></span>
+</button>
+<div class="h-6 w-[1px] bg-outline-variant"></div>
+<!-- Frontline Cashier Profile Badge -->
+<div class="flex items-center gap-3 pl-1">
+<div class="relative">
+<img alt="Kwame Mensah frontline cashier avatar badge" class="w-10 h-10 rounded-full object-cover border border-outline-variant shadow-xs" data-alt="Portrait photograph of Kwame Mensah, a friendly male Ghanaian farm retail staff cashier wearing a clean dark green cotton work polo against a warm sunlit farm depot warehouse backdrop with natural ambient light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQDRZ3qwsEw6rUD27DKEe-AZYarLauYqH_vMvSdnFMpozG9J4bqnppIWSXq5EvaqlSvA1UbbHLtbjQd_CNR-hrxIryUhcolXDhIHuI1tQr6nFBr0XSCnTE4pk1Y4NJvFBZS7MKh5-dho_9gxF0EkQQJJi926iOHJpnGaNu3lIY9CdDc3LQC6UiQnXYNOqypfpTsym-ZV8pHZiLn_RevRaV2CdvZ1M05L__06aQVkg"/>
+<span class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-secondary border-2 border-surface-container-lowest"></span>
+</div>
+<div class="flex flex-col text-left">
+<span class="font-body-medium text-body-medium text-on-surface font-semibold leading-tight">Kwame Mensah</span>
+<span class="font-helper-xs text-helper-xs text-on-surface-variant">Frontline Staff</span>
+</div>
+</div>
+</div>
+</div>
+</header>
+<!-- ===============================
+       MAIN WORKSPACE CANVAS
+       1100px max-width container, 32px padding, centered layout
+       =============================== -->
+<main class="pl-60 min-h-[calc(100vh-4rem)] flex justify-center w-full">
+<div class="w-full max-w-[1100px] p-space-xl flex flex-col gap-6">
+<!-- ===============================
+           SECTION 1: HIGH-FREQUENCY ACTION ROW
+           4 large equal-width action cards with ergonomic touch/click targets
+           =============================== -->
+<section aria-labelledby="quick-actions-heading">
+<div class="flex items-center justify-between mb-3">
+<h3 class="font-title-section text-title-section text-on-surface flex items-center gap-2" id="quick-actions-heading">
+<span>Fast Ledger Entry</span>
+<span class="font-helper-xs text-helper-xs text-on-surface-variant font-normal">Select an operation to open form</span>
+</h3>
+<span class="font-helper-xs text-helper-xs text-primary font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]" data-icon="bolt">bolt</span>
+            Speed Entry Active
+          </span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-md">
+<!-- Card 1: Record Sale (Emerald Green Accent) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 flex flex-col justify-between hover:-translate-y-1 transition duration-150 cursor-pointer shadow-sm group">
+<div>
+<div class="w-12 h-12 rounded-lg bg-secondary-container/40 border border-secondary/20 flex items-center justify-center text-secondary mb-4 group-hover:bg-secondary group-hover:text-on-secondary transition-colors duration-150">
+<span class="material-symbols-outlined text-[28px]" data-icon="point_of_sale" style="font-variation-settings: 'FILL' 1;">point_of_sale</span>
+</div>
+<h4 class="font-title-section text-title-section text-on-surface font-semibold group-hover:text-secondary transition-colors">Record Sale</h4>
+<p class="font-table-cell text-table-cell text-on-surface-variant mt-1.5 leading-relaxed">Log customer purchase &amp; cash received</p>
+</div>
+<div class="mt-5 pt-3 border-t border-surface-container flex items-center justify-between text-secondary">
+<span class="font-label-sm text-label-sm font-semibold">Open Cash Register</span>
+<span class="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform" data-icon="arrow_forward">arrow_forward</span>
+</div>
+</div>
+<!-- Card 2: Eggs Received (Royal Blue Accent) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 flex flex-col justify-between hover:-translate-y-1 transition duration-150 cursor-pointer shadow-sm group">
+<div>
+<div class="w-12 h-12 rounded-lg bg-tertiary-fixed/60 border border-tertiary/20 flex items-center justify-center text-tertiary mb-4 group-hover:bg-tertiary group-hover:text-on-tertiary transition-colors duration-150">
+<span class="material-symbols-outlined text-[28px]" data-icon="inventory_2" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+</div>
+<h4 class="font-title-section text-title-section text-on-surface font-semibold group-hover:text-tertiary transition-colors">Eggs Received</h4>
+<p class="font-table-cell text-table-cell text-on-surface-variant mt-1.5 leading-relaxed">Log crate delivery from farm layer house</p>
+</div>
+<div class="mt-5 pt-3 border-t border-surface-container flex items-center justify-between text-tertiary">
+<span class="font-label-sm text-label-sm font-semibold">Log Crate Inflow</span>
+<span class="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform" data-icon="arrow_forward">arrow_forward</span>
+</div>
+</div>
+<!-- Card 3: Cracked Eggs (Coral Red Accent) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 flex flex-col justify-between hover:-translate-y-1 transition duration-150 cursor-pointer shadow-sm group">
+<div>
+<div class="w-12 h-12 rounded-lg bg-error-container/60 border border-error/20 flex items-center justify-center text-error mb-4 group-hover:bg-error group-hover:text-on-error transition-colors duration-150">
+<span class="material-symbols-outlined text-[28px]" data-icon="broken_image" style="font-variation-settings: 'FILL' 1;">broken_image</span>
+</div>
+<h4 class="font-title-section text-title-section text-on-surface font-semibold group-hover:text-error transition-colors">Cracked Eggs</h4>
+<p class="font-table-cell text-table-cell text-on-surface-variant mt-1.5 leading-relaxed">Record damaged or broken stock</p>
+</div>
+<div class="mt-5 pt-3 border-t border-surface-container flex items-center justify-between text-error">
+<span class="font-label-sm text-label-sm font-semibold">Report Damage</span>
+<span class="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform" data-icon="arrow_forward">arrow_forward</span>
+</div>
+</div>
+<!-- Card 4: Add Expense (Warm Amber Accent) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 flex flex-col justify-between hover:-translate-y-1 transition duration-150 cursor-pointer shadow-sm group">
+<div>
+<div class="w-12 h-12 rounded-lg bg-primary-fixed/50 border border-primary/20 flex items-center justify-center text-primary mb-4 group-hover:bg-primary group-hover:text-on-primary transition-colors duration-150">
+<span class="material-symbols-outlined text-[28px]" data-icon="account_balance_wallet" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+</div>
+<h4 class="font-title-section text-title-section text-on-surface font-semibold group-hover:text-primary transition-colors">Add Expense</h4>
+<p class="font-table-cell text-table-cell text-on-surface-variant mt-1.5 leading-relaxed">Log feeds, medicines or urgent shop costs</p>
+</div>
+<div class="mt-5 pt-3 border-t border-surface-container flex items-center justify-between text-primary">
+<span class="font-label-sm text-label-sm font-semibold">Record Payout</span>
+<span class="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform" data-icon="arrow_forward">arrow_forward</span>
+</div>
+</div>
+</div>
+</section>
+<!-- ===============================
+           SECTION 2: WORKER STAT STRIP
+           Strictly worker-safe: NO total stock balances, NO store profit, NO admin overhead.
+           Shows strictly personal accountability metrics for the active shift.
+           =============================== -->
+<section aria-labelledby="shift-stats-heading" class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+<!-- Stat Card 1: Shift Sales Count -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 flex items-center justify-between shadow-sm">
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary"></span>
+<span class="font-table-header text-table-header text-on-surface-variant uppercase tracking-wider">Shift Activity</span>
+</div>
+<span class="font-body-medium text-body-medium text-on-surface mt-1 font-medium">Sales recorded today</span>
+<div class="mt-2 flex items-baseline gap-2">
+<span class="font-display-stat-lg text-display-stat-lg text-on-surface font-bold">12</span>
+<span class="font-helper-xs text-helper-xs text-secondary font-medium">receipts logged</span>
+</div>
+</div>
+<div class="h-14 w-14 rounded-xl bg-surface-container-low border border-outline-variant flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[30px]" data-icon="receipt_long">receipt_long</span>
+</div>
+</div>
+<!-- Stat Card 2: Shift Sales Total -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 flex items-center justify-between shadow-sm">
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
+<span class="font-table-header text-table-header text-on-surface-variant uppercase tracking-wider">Drawer Handover Expectation</span>
+</div>
+<span class="font-body-medium text-body-medium text-on-surface mt-1 font-medium">Your sales total</span>
+<div class="mt-2 flex items-baseline gap-1">
+<span class="font-display-stat-lg text-display-stat-lg text-secondary font-bold tracking-tight">GH₵ 1,850.00</span>
+<span class="font-helper-xs text-helper-xs text-on-surface-variant font-medium ml-1">in drawer</span>
+</div>
+</div>
+<div class="h-14 w-14 rounded-xl bg-surface-container-low border border-outline-variant flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[30px]" data-icon="payments">payments</span>
+</div>
+</div>
+</section>
+<!-- ===============================
+           SECTION 3: DATA TABLE - MY ENTRIES TODAY
+           52px comfortable rows, distinct pill tags, right-aligned numerical amounts
+           =============================== -->
+<section aria-labelledby="entries-table-heading" class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden flex flex-col">
+<!-- Table Card Header -->
+<div class="px-6 py-4 border-b border-outline-variant bg-surface-container-lowest flex items-center justify-between">
+<div class="flex items-center gap-3">
+<h3 class="font-title-section text-title-section text-on-surface font-semibold" id="entries-table-heading">My entries today</h3>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container border border-outline-variant font-helper-xs text-helper-xs text-on-surface-variant font-medium">
+              5 entries in this shift
+            </span>
+</div>
+<a class="font-label-sm text-label-sm text-primary font-semibold hover:text-primary-container flex items-center gap-1 group transition-colors" href="#">
+<span>View all entries</span>
+<span class="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform" data-icon="arrow_forward">arrow_forward</span>
+</a>
+</div>
+<!-- Ledger Table Canvas -->
+<div class="overflow-x-auto custom-scrollbar">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="h-11 bg-surface-container-low/70 border-b border-outline-variant font-table-header text-table-header text-on-surface-variant uppercase">
+<th class="pl-6 pr-4 font-semibold tracking-wider w-32" scope="col">Time</th>
+<th class="px-4 font-semibold tracking-wider w-36" scope="col">Type</th>
+<th class="px-4 font-semibold tracking-wider" scope="col">Item Details &amp; Quantity</th>
+<th class="px-4 font-semibold tracking-wider text-right pr-6 w-44" scope="col">Cash In / Out</th>
+<th class="px-4 font-semibold tracking-wider text-center w-20" scope="col">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container">
+<!-- Row 1: Sale -->
+<tr class="h-[52px] hover:bg-surface-container-low/40 transition-colors">
+<td class="pl-6 pr-4 font-table-cell text-table-cell text-on-surface whitespace-nowrap">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant" data-icon="schedule">schedule</span>
+<span>10:42 AM</span>
+</div>
+</td>
+<td class="px-4 font-table-cell text-table-cell whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container/40 border border-secondary/30 text-secondary font-label-sm text-label-sm font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                    Sale
+                  </span>
+</td>
+<td class="px-4 font-table-cell text-table-cell text-on-surface">
+<div class="flex items-center gap-2">
+<span class="font-medium text-on-surface">8 crates + 15 eggs</span>
+<span class="text-on-surface-variant font-helper-xs text-helper-xs">(Medium Table Eggs)</span>
+</div>
+</td>
+<td class="px-4 font-currency-tabular text-currency-tabular text-secondary text-right pr-6 whitespace-nowrap">
+                  + GH₵ 410.00
+                </td>
+<td class="px-4 text-center whitespace-nowrap">
+<button class="p-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" title="Print receipt snippet">
+<span class="material-symbols-outlined text-[18px]" data-icon="print">print</span>
+</button>
+</td>
+</tr>
+<!-- Row 2: Eggs Received -->
+<tr class="h-[52px] hover:bg-surface-container-low/40 transition-colors">
+<td class="pl-6 pr-4 font-table-cell text-table-cell text-on-surface whitespace-nowrap">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant" data-icon="schedule">schedule</span>
+<span>09:50 AM</span>
+</div>
+</td>
+<td class="px-4 font-table-cell text-table-cell whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-tertiary-fixed/60 border border-tertiary/30 text-tertiary font-label-sm text-label-sm font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+                    Received
+                  </span>
+</td>
+<td class="px-4 font-table-cell text-table-cell text-on-surface">
+<div class="flex items-center gap-2">
+<span class="font-medium text-on-surface">40 crates</span>
+<span class="text-on-surface-variant font-helper-xs text-helper-xs">(Poultry Pen #3 Morning Batch)</span>
+</div>
+</td>
+<td class="px-4 font-currency-tabular text-currency-tabular text-on-surface-variant text-right pr-6 whitespace-nowrap">
+                  —
+                </td>
+<td class="px-4 text-center whitespace-nowrap">
+<button class="p-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" title="View batch receipt">
+<span class="material-symbols-outlined text-[18px]" data-icon="receipt">receipt</span>
+</button>
+</td>
+</tr>
+<!-- Row 3: Cracked Eggs -->
+<tr class="h-[52px] hover:bg-surface-container-low/40 transition-colors">
+<td class="pl-6 pr-4 font-table-cell text-table-cell text-on-surface whitespace-nowrap">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant" data-icon="schedule">schedule</span>
+<span>09:15 AM</span>
+</div>
+</td>
+<td class="px-4 font-table-cell text-table-cell whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-error-container/60 border border-error/30 text-error font-label-sm text-label-sm font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+                    Cracked
+                  </span>
+</td>
+<td class="px-4 font-table-cell text-table-cell text-on-surface">
+<div class="flex items-center gap-2">
+<span class="font-medium text-on-surface">2 crates</span>
+<span class="text-on-surface-variant font-helper-xs text-helper-xs">(Transit vibration damage during transport)</span>
+</div>
+</td>
+<td class="px-4 font-currency-tabular text-currency-tabular text-on-surface-variant text-right pr-6 whitespace-nowrap">
+                  —
+                </td>
+<td class="px-4 text-center whitespace-nowrap">
+<button class="p-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" title="View damage log">
+<span class="material-symbols-outlined text-[18px]" data-icon="visibility">visibility</span>
+</button>
+</td>
+</tr>
+<!-- Row 4: Expense -->
+<tr class="h-[52px] hover:bg-surface-container-low/40 transition-colors">
+<td class="pl-6 pr-4 font-table-cell text-table-cell text-on-surface whitespace-nowrap">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant" data-icon="schedule">schedule</span>
+<span>08:30 AM</span>
+</div>
+</td>
+<td class="px-4 font-table-cell text-table-cell whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary-fixed/50 border border-primary/30 text-primary font-label-sm text-label-sm font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                    Expense
+                  </span>
+</td>
+<td class="px-4 font-table-cell text-table-cell text-on-surface">
+<div class="flex items-center gap-2">
+<span class="font-medium text-on-surface">Egg tray paper packing bundles</span>
+<span class="text-on-surface-variant font-helper-xs text-helper-xs">(Supplier: Kaneshie Cartons)</span>
+</div>
+</td>
+<td class="px-4 font-currency-tabular text-currency-tabular text-error text-right pr-6 whitespace-nowrap">
+                  - GH₵ 60.00
+                </td>
+<td class="px-4 text-center whitespace-nowrap">
+<button class="p-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" title="View payment voucher">
+<span class="material-symbols-outlined text-[18px]" data-icon="receipt">receipt</span>
+</button>
+</td>
+</tr>
+<!-- Row 5: Sale -->
+<tr class="h-[52px] hover:bg-surface-container-low/40 transition-colors">
+<td class="pl-6 pr-4 font-table-cell text-table-cell text-on-surface whitespace-nowrap">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant" data-icon="schedule">schedule</span>
+<span>07:45 AM</span>
+</div>
+</td>
+<td class="px-4 font-table-cell text-table-cell whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container/40 border border-secondary/30 text-secondary font-label-sm text-label-sm font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                    Sale
+                  </span>
+</td>
+<td class="px-4 font-table-cell text-table-cell text-on-surface">
+<div class="flex items-center gap-2">
+<span class="font-medium text-on-surface">30 crates</span>
+<span class="text-on-surface-variant font-helper-xs text-helper-xs">(Wholesale Bakery Order #108)</span>
+</div>
+</td>
+<td class="px-4 font-currency-tabular text-currency-tabular text-secondary text-right pr-6 whitespace-nowrap">
+                  + GH₵ 1,440.00
+                </td>
+<td class="px-4 text-center whitespace-nowrap">
+<button class="p-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" title="Print receipt snippet">
+<span class="material-symbols-outlined text-[18px]" data-icon="print">print</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Card Footer Bar -->
+<div class="px-6 py-3 bg-surface-container-low/50 border-t border-outline-variant flex items-center justify-between text-on-surface-variant">
+<span class="font-helper-xs text-helper-xs">
+            Showing entries registered by <strong class="text-on-surface font-semibold">Kwame Mensah</strong> during active shift.
+          </span>
+<div class="flex items-center gap-3">
+<span class="font-label-sm text-label-sm text-on-surface font-medium">Physical Cash Collected: <span class="text-secondary font-bold">GH₵ 1,850.00</span></span>
+<span class="text-outline-variant">|</span>
+<span class="font-label-sm text-label-sm text-on-surface font-medium">Expenses Out: <span class="text-error font-bold">GH₵ 60.00</span></span>
+</div>
+</div>
+</section>
+<!-- ===============================
+           SECTION 4: QUICK INVENTORY ASSISTANT SNIPPET (WORKER REASSURANCE)
+           Assists workers with standard crate math without revealing sensitive financial margins
+           =============================== -->
+<section class="bg-surface-container-low border border-outline-variant rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-surface-container-lowest border border-outline-variant flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[22px]" data-icon="calculate">calculate</span>
+</div>
+<div>
+<h5 class="font-body-medium text-body-medium text-on-surface font-semibold">Crate Reference Standard</h5>
+<p class="font-helper-xs text-helper-xs text-on-surface-variant">Standard Ghana Wholesale Pack: 1 Crate = 30 Eggs. For custom breakdowns, utilize the number stepper in sales dialog.</p>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<span class="px-3 py-1 rounded bg-surface-container-lowest border border-outline-variant font-helper-xs text-helper-xs text-on-surface font-medium">
+            1/2 Crate = 15 eggs
+          </span>
+<span class="px-3 py-1 rounded bg-surface-container-lowest border border-outline-variant font-helper-xs text-helper-xs text-on-surface font-medium">
+            Quarter = 7 or 8 eggs
+          </span>
+</div>
+</section>
+</div>
+</main>
+</body></html>

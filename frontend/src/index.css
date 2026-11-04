@@ -1,0 +1,111 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: #faf8f3;
+    color: #1f1d1a;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Tabular numbers for all financial/numeric content */
+  .tabular-nums,
+  table,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* Card base */
+  .card {
+    @apply bg-card border border-border rounded-md shadow-card;
+  }
+
+  /* Primary button */
+  .btn-primary {
+    @apply bg-brand hover:bg-brand-hover active:bg-brand-active text-white font-semibold text-sm
+           h-[42px] px-[18px] rounded transition-colors duration-150 disabled:opacity-50
+           disabled:cursor-not-allowed flex items-center justify-center gap-2;
+  }
+
+  /* Outlined / neutral button */
+  .btn-outline {
+    @apply bg-transparent border border-border text-ink hover:bg-canvas font-medium text-sm
+           h-[42px] px-[18px] rounded transition-colors duration-150 disabled:opacity-50
+           disabled:cursor-not-allowed flex items-center justify-center gap-2;
+  }
+
+  /* Danger ghost button */
+  .btn-danger {
+    @apply bg-danger-bg border border-danger-border text-danger font-medium text-sm
+           h-[42px] px-[18px] rounded transition-colors duration-150 disabled:opacity-50
+           disabled:cursor-not-allowed flex items-center justify-center gap-2;
+  }
+
+  /* Intake / blue ghost button */
+  .btn-intake {
+    @apply bg-intake-bg border border-intake-border text-intake font-medium text-sm
+           h-[42px] px-[18px] rounded transition-colors duration-150 disabled:opacity-50
+           disabled:cursor-not-allowed flex items-center justify-center gap-2;
+  }
+
+  /* Text input base */
+  .input-base {
+    @apply h-[44px] bg-card border border-border rounded text-body-default text-ink px-[14px]
+           w-full outline-none transition-all duration-150
+           focus:border-brand focus:border-[1.5px] focus:shadow-input
+           placeholder:text-muted;
+  }
+
+  /* Table header cell */
+  .th {
+    @apply text-table-header text-muted uppercase tracking-[0.04em] px-4 py-0 h-[44px]
+           bg-canvas border-b border-border text-left;
+  }
+
+  /* Table data cell */
+  .td {
+    @apply text-table-cell text-ink px-4 h-[52px] border-b border-canvas;
+  }
+
+  /* Stat card section label */
+  .stat-label {
+    @apply text-helper-xs text-muted uppercase tracking-[0.04em];
+  }
+
+  /* Badge variants */
+  .badge-sale {
+    @apply bg-success-bg border border-success-border text-success text-xs font-medium
+           px-2 py-0.5 rounded-full;
+  }
+  .badge-received {
+    @apply bg-intake-bg border border-intake-border text-intake text-xs font-medium
+           px-2 py-0.5 rounded-full;
+  }
+  .badge-cracked {
+    @apply bg-danger-bg border border-danger-border text-danger text-xs font-medium
+           px-2 py-0.5 rounded-full;
+  }
+  .badge-neutral {
+    @apply bg-[#F5F2EB] border border-border text-muted text-xs font-medium
+           px-2 py-0.5 rounded-full;
+  }
+}

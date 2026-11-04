@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Egg Book - Sign In</title>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Inter Google Font -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS v3 with forms and container-queries -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Theme Configuration Verbatim -->
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-surface": "#1d1b18",
+            "on-secondary-fixed": "#002204",
+            "surface-container-high": "#ede7e2",
+            "surface-variant": "#e7e1dc",
+            "on-tertiary": "#ffffff",
+            "on-primary-fixed-variant": "#6a3c00",
+            "secondary": "#1b6d24",
+            "error": "#ba1a1a",
+            "surface-container-low": "#f9f2ed",
+            "primary-fixed-dim": "#ffb871",
+            "on-primary": "#ffffff",
+            "secondary-fixed": "#a3f69c",
+            "inverse-primary": "#ffb871",
+            "on-secondary-container": "#217128",
+            "inverse-on-surface": "#f6f0ea",
+            "on-secondary": "#ffffff",
+            "tertiary-container": "#2e74d0",
+            "surface-container-highest": "#e7e1dc",
+            "error-container": "#ffdad6",
+            "surface-container": "#f3ede7",
+            "surface-tint": "#8b5000",
+            "secondary-fixed-dim": "#88d982",
+            "primary-fixed": "#ffdcbe",
+            "tertiary-fixed": "#d6e3ff",
+            "primary-container": "#ab6300",
+            "surface-container-lowest": "#ffffff",
+            "tertiary-fixed-dim": "#a9c7ff",
+            "on-tertiary-container": "#fefcff",
+            "on-error": "#ffffff",
+            "primary": "#884e00",
+            "on-primary-fixed": "#2d1600",
+            "background": "#fff8f3",
+            "surface-dim": "#dfd9d4",
+            "surface": "#fff8f3",
+            "outline": "#867465",
+            "on-background": "#1d1b18",
+            "inverse-surface": "#32302d",
+            "on-primary-container": "#fffbff",
+            "outline-variant": "#d8c3b1",
+            "on-tertiary-fixed": "#001b3d",
+            "secondary-container": "#a0f399",
+            "on-tertiary-fixed-variant": "#00468c",
+            "on-secondary-fixed-variant": "#005312",
+            "surface-bright": "#fff8f3",
+            "on-surface-variant": "#534437",
+            "tertiary": "#005bb3",
+            "on-error-container": "#93000a"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-lg": "1.5rem",
+            "space-sm": "0.5rem",
+            "gutter": "1.5rem",
+            "space-xl": "2rem",
+            "margin": "2rem",
+            "space-md": "1rem",
+            "space-xs": "0.25rem"
+          },
+          "fontFamily": {
+            "title-section": ["Inter"],
+            "body-medium": ["Inter"],
+            "display-stat-md": ["Inter"],
+            "table-header": ["Inter"],
+            "table-cell": ["Inter"],
+            "helper-xs": ["Inter"],
+            "title-page": ["Inter"],
+            "label-sm": ["Inter"],
+            "body-default": ["Inter"],
+            "currency-tabular": ["Inter"],
+            "display-stat-lg": ["Inter"]
+          },
+          "fontSize": {
+            "title-section": ["18px", { "lineHeight": "26px", "fontWeight": "600" }],
+            "body-medium": ["15px", { "lineHeight": "22px", "fontWeight": "500" }],
+            "display-stat-md": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "table-header": ["12px", { "lineHeight": "16px", "letterSpacing": "0.04em", "fontWeight": "600" }],
+            "table-cell": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "helper-xs": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "title-page": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "label-sm": ["13px", { "lineHeight": "18px", "fontWeight": "500" }],
+            "body-default": ["15px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "currency-tabular": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "display-stat-lg": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    .tactile-card-shadow {
+      box-shadow: 0 1px 3px rgba(31, 29, 26, 0.04), 0 1px 2px rgba(31, 29, 26, 0.02);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed font-body-default text-body-default">
+<!-- Desktop 1440px Canvas Structured Split -->
+<main class="w-full min-h-screen flex flex-col md:flex-row">
+<!-- LEFT HALF: Warm Branded Hero Panel (Egg-yolk amber / Tactile Farm Warmth) -->
+<div class="relative w-full md:w-1/2 bg-primary-container text-on-primary flex flex-col justify-between p-8 md:p-14 lg:p-20 overflow-hidden">
+<!-- Subtle Decorative Background Pattern: Stacked Crates and Egg Contours -->
+<div class="absolute inset-0 pointer-events-none opacity-10">
+<svg class="w-full h-full object-cover" fill="none" viewbox="0 0 720 900" xmlns="http://www.w3.org/2000/svg">
+<circle cx="620" cy="180" r="280" stroke="#ffffff" stroke-dasharray="8 8" stroke-width="2"></circle>
+<path d="M-60 480C80 480 180 580 180 720C180 860 80 960 -60 960" stroke="#ffffff" stroke-width="2"></path>
+<path d="M520 740C520 620 620 540 760 540" stroke="#ffffff" stroke-width="1.5"></path>
+<g opacity="0.6">
+<rect height="120" rx="16" stroke="#ffffff" stroke-width="1.5" width="120" x="80" y="240"></rect>
+<circle cx="115" cy="275" fill="#ffffff" fill-opacity="0.2" r="18"></circle>
+<circle cx="165" cy="275" fill="#ffffff" fill-opacity="0.2" r="18"></circle>
+<circle cx="115" cy="325" fill="#ffffff" fill-opacity="0.2" r="18"></circle>
+<circle cx="165" cy="325" fill="#ffffff" fill-opacity="0.2" r="18"></circle>
+</g>
+</svg>
+</div>
+<!-- Top Header Row: Emblem & Edition Badge -->
+<div class="relative z-10 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-xl bg-on-primary-container/20 border border-on-primary-container/30 flex items-center justify-center shadow-sm">
+<!-- Golden Egg Logo Mark -->
+<span class="material-symbols-outlined text-on-primary" style="font-variation-settings: 'FILL' 1; font-size: 28px;">egg</span>
+</div>
+<div>
+<h1 class="font-title-page text-title-page text-on-primary tracking-tight font-bold">Egg Book</h1>
+<p class="font-helper-xs text-helper-xs text-primary-fixed opacity-90">Worker Station &amp; Management Ledger</p>
+</div>
+</div>
+<div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-on-primary-container/25 border border-on-primary-container/40 text-on-primary font-table-header text-table-header backdrop-blur-sm">
+<span class="material-symbols-outlined text-primary-fixed" style="font-variation-settings: 'FILL' 1; font-size: 14px;">verified</span>
+<span>Ghana Small Business Edition</span>
+</div>
+</div>
+<!-- Center Hero Statement & Visual Accent -->
+<div class="relative z-10 my-12 max-w-lg">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-on-primary/10 border border-on-primary/20 mb-6 font-label-sm text-label-sm text-primary-fixed">
+<span class="material-symbols-outlined" style="font-size: 16px;">receipt_long</span>
+<span>Daily Crates, Sales &amp; Reconciliation</span>
+</div>
+<h2 class="font-display-stat-lg text-display-stat-lg text-on-primary leading-tight font-extrabold mb-4">
+          Your egg business, in one simple book.
+        </h2>
+<p class="font-body-default text-body-default text-primary-fixed text-opacity-95 leading-relaxed max-w-md">
+          Fast frontline ledger recording for morning shifts, strict audit security for owners, and clear daily cash balances tailored for Ghanaian retail stores and poultry depots.
+        </p>
+<!-- Tactile Farm Feature Highlights -->
+<div class="mt-8 grid grid-cols-2 gap-4 pt-6 border-t border-on-primary/20">
+<div class="flex items-start gap-2.5">
+<span class="material-symbols-outlined text-primary-fixed mt-0.5" style="font-size: 20px;">bolt</span>
+<div>
+<p class="font-table-header text-table-header text-on-primary">Instant Entry</p>
+<p class="font-helper-xs text-helper-xs text-primary-fixed/80">3-tap crate sales &amp; breakage tallies</p>
+</div>
+</div>
+<div class="flex items-start gap-2.5">
+<span class="material-symbols-outlined text-primary-fixed mt-0.5" style="font-size: 20px;">lock_clock</span>
+<div>
+<p class="font-table-header text-table-header text-on-primary">Shift Locked</p>
+<p class="font-helper-xs text-helper-xs text-primary-fixed/80">Discrepancy prevention &amp; cash audit</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Trust Footer -->
+<div class="relative z-10 flex items-center justify-between text-primary-fixed text-opacity-80 pt-6 border-t border-on-primary/15 font-helper-xs text-helper-xs">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-size: 16px;">storefront</span>
+<span>Accra • Kumasi • Takoradi Retail Hubs</span>
+</div>
+<span>Version 2.4</span>
+</div>
+</div>
+<!-- RIGHT HALF: Clean Off-White Canvas & Centered Sign-in Card -->
+<div class="w-full md:w-1/2 bg-surface flex items-center justify-center p-6 md:p-12 lg:p-16">
+<div class="w-full max-w-[400px]">
+<!-- Clean Tactile Surface Card -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-space-xl tactile-card-shadow">
+<!-- Card Header -->
+<div class="mb-6">
+<div class="flex items-center justify-between mb-1">
+<span class="font-table-header text-table-header text-on-surface-variant uppercase tracking-wider">Account Access</span>
+<span class="flex items-center gap-1 font-helper-xs text-helper-xs text-secondary font-medium bg-secondary-fixed/20 px-2 py-0.5 rounded">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                Terminal Online
+              </span>
+</div>
+<h3 class="font-title-page text-title-page text-on-surface font-bold tracking-tight">Sign in</h3>
+<p class="font-body-default text-body-default text-on-surface-variant mt-1">Enter your station credentials to log entries.</p>
+</div>
+<!-- Sign-in Form -->
+<form class="space-y-4" id="loginForm" onsubmit="event.preventDefault(); triggerDemoError();">
+<!-- Username Input Field -->
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface font-semibold mb-1.5" for="usernameInput">
+                Username
+              </label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-on-surface-variant">
+<span class="material-symbols-outlined" style="font-size: 20px;">person</span>
+</div>
+<input class="w-full h-11 pl-10 pr-3.5 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-default text-body-default text-on-surface placeholder:text-outline focus:outline-none focus:border-primary-container focus:ring-2 focus:ring-primary-container/20 transition-all duration-150" id="usernameInput" name="username" placeholder="e.g. kwame_m" required="" type="text" value="kwame_m"/>
+</div>
+</div>
+<!-- Password Input Field -->
+<div>
+<div class="flex items-center justify-between mb-1.5">
+<label class="block font-label-sm text-label-sm text-on-surface font-semibold" for="passwordInput">
+                  Password
+                </label>
+</div>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-on-surface-variant">
+<span class="material-symbols-outlined" style="font-size: 20px;">key</span>
+</div>
+<input class="w-full h-11 pl-10 pr-11 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-default text-body-default text-on-surface placeholder:text-outline focus:outline-none focus:border-primary-container focus:ring-2 focus:ring-primary-container/20 transition-all duration-150" id="passwordInput" name="password" placeholder="••••••••" required="" type="password" value="shiftpass2025"/>
+<button aria-label="Toggle password visibility" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-on-surface-variant hover:text-on-surface focus:outline-none transition-colors" id="togglePasswordBtn" onclick="togglePasswordVisibility()" type="button">
+<span class="material-symbols-outlined" id="eyeIcon" style="font-size: 20px;">visibility</span>
+</button>
+</div>
+</div>
+<!-- Full-width Warm Egg-Yolk Amber Primary Action Button -->
+<div class="pt-2">
+<button class="w-full h-11 bg-primary-container hover:bg-primary active:bg-on-primary-fixed-variant text-on-primary font-body-medium text-body-medium font-semibold rounded-lg shadow-sm transition-all duration-150 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary-container focus:ring-offset-2" id="submitBtn" type="submit">
+<span>Sign in</span>
+<span class="material-symbols-outlined" style="font-size: 18px;">arrow_forward</span>
+</button>
+</div>
+<!-- Inline Simulated Demo Error Banner -->
+<div class="flex items-start gap-2.5 p-3 rounded-lg bg-error-container border border-error/30 text-on-error-container transition-all duration-200" id="demoErrorBanner">
+<span class="material-symbols-outlined text-error mt-0.5 flex-shrink-0" style="font-size: 18px;">error</span>
+<div class="flex-1">
+<p class="font-body-medium text-body-medium text-error font-semibold">Wrong username or password</p>
+<p class="font-helper-xs text-helper-xs text-on-surface-variant mt-0.5">Please check shift credentials with your store supervisor.</p>
+</div>
+<button class="text-on-surface-variant hover:text-error" onclick="dismissError()" type="button">
+<span class="material-symbols-outlined" style="font-size: 16px;">close</span>
+</button>
+</div>
+</form>
+<!-- Card Separation & Footer Context -->
+<div class="mt-6 pt-5 border-t border-outline-variant/60 flex flex-col items-center text-center gap-3">
+<p class="font-helper-xs text-helper-xs text-on-surface-variant">
+              Forgot password? <span class="text-on-surface font-semibold">Ask the owner.</span>
+</p>
+<!-- Role Switcher Demo Badge -->
+<div class="inline-flex items-center p-1 bg-surface-container rounded-lg border border-outline-variant/80 text-on-surface-variant font-helper-xs text-helper-xs">
+<span class="px-2 py-0.5 font-semibold text-primary">Demo Login:</span>
+<button class="px-2 py-0.5 rounded hover:bg-surface-container-lowest hover:text-on-surface font-medium transition-colors" onclick="fillCredentials('kwame_m', 'cashier123', 'Worker (Kwame)')" title="Fill Kwame's credentials" type="button">
+                Worker (Kwame)
+              </button>
+<span class="text-outline">|</span>
+<button class="px-2 py-0.5 rounded hover:bg-surface-container-lowest hover:text-on-surface font-medium transition-colors" onclick="fillCredentials('kofi_owner', 'depotmaster', 'Owner (Kofi)')" title="Fill Kofi's credentials" type="button">
+                Owner (Kofi)
+              </button>
+</div>
+</div>
+</div>
+<!-- Outside Subtext / Station Identification -->
+<div class="mt-6 text-center">
+<p class="font-helper-xs text-helper-xs text-outline">
+            Station Terminal GH-04 • Tamale Central Depot • Shift Morning
+          </p>
+</div>
+</div>
+</div>
+</main>
+<!-- Interactive JavaScript for Form Demo micro-interactions -->
+<script>
+    function togglePasswordVisibility() {
+      const passwordInput = document.getElementById('passwordInput');
+      const eyeIcon = document.getElementById('eyeIcon');
+      if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        eyeIcon.textContent = 'visibility_off';
+      } else {
+        passwordInput.type = 'password';
+        eyeIcon.textContent = 'visibility';
+      }
+    }
+
+    function dismissError() {
+      const errorBanner = document.getElementById('demoErrorBanner');
+      errorBanner.classList.add('hidden');
+    }
+
+    function triggerDemoError() {
+      const errorBanner = document.getElementById('demoErrorBanner');
+      errorBanner.classList.remove('hidden');
+      
+      // Tactile button bounce effect
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.classList.add('ring-2', 'ring-error');
+      setTimeout(() => {
+        submitBtn.classList.remove('ring-2', 'ring-error');
+      }, 400);
+    }
+
+    function fillCredentials(username, pass, label) {
+      document.getElementById('usernameInput').value = username;
+      document.getElementById('passwordInput').value = pass;
+      
+      // Auto display message
+      const errorBanner = document.getElementById('demoErrorBanner');
+      errorBanner.classList.remove('hidden');
+      const title = errorBanner.querySelector('.font-semibold');
+      const subtitle = errorBanner.querySelector('.text-on-surface-variant');
+      if (title && subtitle) {
+        title.textContent = `Selected demo account: ${label}`;
+        subtitle.textContent = `Ready to simulate sign-in for ${username}.`;
+      }
+    }
+  </script>
+</body></html>

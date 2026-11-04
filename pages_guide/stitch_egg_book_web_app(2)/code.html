@@ -1,0 +1,404 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Egg Book - Record Sale (Worker Station)</title>
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-surface": "#1d1b18",
+            "on-secondary-fixed": "#002204",
+            "surface-container-high": "#ede7e2",
+            "surface-variant": "#e7e1dc",
+            "on-tertiary": "#ffffff",
+            "on-primary-fixed-variant": "#6a3c00",
+            "secondary": "#1b6d24",
+            "error": "#ba1a1a",
+            "surface-container-low": "#f9f2ed",
+            "primary-fixed-dim": "#ffb871",
+            "on-primary": "#ffffff",
+            "secondary-fixed": "#a3f69c",
+            "inverse-primary": "#ffb871",
+            "on-secondary-container": "#217128",
+            "inverse-on-surface": "#f6f0ea",
+            "on-secondary": "#ffffff",
+            "tertiary-container": "#2e74d0",
+            "surface-container-highest": "#e7e1dc",
+            "error-container": "#ffdad6",
+            "surface-container": "#f3ede7",
+            "surface-tint": "#8b5000",
+            "secondary-fixed-dim": "#88d982",
+            "primary-fixed": "#ffdcbe",
+            "tertiary-fixed": "#d6e3ff",
+            "primary-container": "#ab6300",
+            "surface-container-lowest": "#ffffff",
+            "tertiary-fixed-dim": "#a9c7ff",
+            "on-tertiary-container": "#fefcff",
+            "on-error": "#ffffff",
+            "primary": "#884e00",
+            "on-primary-fixed": "#2d1600",
+            "background": "#fff8f3",
+            "surface-dim": "#dfd9d4",
+            "surface": "#fff8f3",
+            "outline": "#867465",
+            "on-background": "#1d1b18",
+            "inverse-surface": "#32302d",
+            "on-primary-container": "#fffbff",
+            "outline-variant": "#d8c3b1",
+            "on-tertiary-fixed": "#001b3d",
+            "secondary-container": "#a0f399",
+            "on-tertiary-fixed-variant": "#00468c",
+            "on-secondary-fixed-variant": "#005312",
+            "surface-bright": "#fff8f3",
+            "on-surface-variant": "#534437",
+            "tertiary": "#005bb3",
+            "on-error-container": "#93000a"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-lg": "1.5rem",
+            "space-sm": "0.5rem",
+            "gutter": "1.5rem",
+            "space-xl": "2rem",
+            "margin": "2rem",
+            "space-md": "1rem",
+            "space-xs": "0.25rem"
+          },
+          "fontFamily": {
+            "title-section": ["Inter"],
+            "body-medium": ["Inter"],
+            "display-stat-md": ["Inter"],
+            "table-header": ["Inter"],
+            "table-cell": ["Inter"],
+            "helper-xs": ["Inter"],
+            "title-page": ["Inter"],
+            "label-sm": ["Inter"],
+            "body-default": ["Inter"],
+            "currency-tabular": ["Inter"],
+            "display-stat-lg": ["Inter"]
+          },
+          "fontSize": {
+            "title-section": ["18px", { "lineHeight": "26px", "fontWeight": "600" }],
+            "body-medium": ["15px", { "lineHeight": "22px", "fontWeight": "500" }],
+            "display-stat-md": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "table-header": ["12px", { "lineHeight": "16px", "letterSpacing": "0.04em", "fontWeight": "600" }],
+            "table-cell": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "helper-xs": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "title-page": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "label-sm": ["13px", { "lineHeight": "18px", "fontWeight": "500" }],
+            "body-default": ["15px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "currency-tabular": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "display-stat-lg": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 20px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-smoothing: antialiased;
+    }
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface antialiased min-h-screen font-body-default text-body-default flex">
+<!-- ==================== SIDEBAR ==================== -->
+<aside class="fixed top-0 left-0 h-screen w-60 z-30 flex flex-col justify-between p-space-md bg-surface-container-lowest dark:bg-surface-container-low border-r border-outline-variant dark:border-outline">
+<div class="flex flex-col gap-6">
+<!-- Brand & Mode Pill -->
+<div class="flex flex-col gap-2 px-2 pt-1">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary font-bold shadow-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">egg</span>
+</div>
+<span class="font-title-page text-title-page text-primary dark:text-inverse-primary font-bold tracking-tight">Egg Book</span>
+</div>
+<div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-helper-xs text-helper-xs w-fit">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+<span class="">Worker Station</span>
+</div>
+</div>
+<!-- Quick Action CTA -->
+<button class="w-full flex items-center justify-center gap-2 bg-primary text-on-primary py-2.5 px-3 rounded-lg font-body-medium text-body-medium hover:bg-primary-container active:scale-[0.99] transition-transform duration-100 ease-out shadow-sm" type="button">
+<span class="material-symbols-outlined">add_circle</span>
+<span class="">Log New Entry</span>
+</button>
+<!-- Nav Items -->
+<nav class="flex flex-col gap-1.5">
+<!-- Daily Ledger -->
+<a class="text-on-surface-variant dark:text-outline-variant font-body-default hover:text-on-surface dark:hover:text-inverse-on-surface rounded-lg px-3 py-2 flex items-center gap-3 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors duration-150 active:scale-[0.99]" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="">Daily Ledger</span>
+</a>
+<!-- Record Intake -->
+<a class="text-on-surface-variant dark:text-outline-variant font-body-default hover:text-on-surface dark:hover:text-inverse-on-surface rounded-lg px-3 py-2 flex items-center gap-3 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors duration-150 active:scale-[0.99]" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="">Record Intake</span>
+</a>
+<!-- Record Sales (ACTIVE) -->
+<a class="bg-surface-container-low dark:bg-surface-container text-primary dark:text-inverse-primary font-title-section text-title-section border-l-4 border-primary dark:border-primary-fixed-dim rounded-r-lg px-3 py-2 flex items-center gap-3" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">point_of_sale</span>
+<span class="">Record Sales</span>
+</a>
+<!-- Damaged Stock -->
+<a class="text-on-surface-variant dark:text-outline-variant font-body-default hover:text-on-surface dark:hover:text-inverse-on-surface rounded-lg px-3 py-2 flex items-center gap-3 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors duration-150 active:scale-[0.99]" href="#">
+<span class="material-symbols-outlined">broken_image</span>
+<span class="">Damaged Stock</span>
+</a>
+<!-- Reconciliation -->
+<a class="text-on-surface-variant dark:text-outline-variant font-body-default hover:text-on-surface dark:hover:text-inverse-on-surface rounded-lg px-3 py-2 flex items-center gap-3 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors duration-150 active:scale-[0.99]" href="#">
+<span class="material-symbols-outlined">fact_check</span>
+<span class="">Reconciliation</span>
+</a>
+</nav>
+</div>
+<!-- Sidebar Footer -->
+<div class="flex flex-col gap-1 border-t border-outline-variant dark:border-outline pt-3">
+<a class="text-on-surface-variant dark:text-outline-variant font-body-default hover:text-on-surface dark:hover:text-inverse-on-surface rounded-lg px-3 py-2 flex items-center gap-3 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors duration-150" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="">Settings</span>
+</a>
+<a class="text-on-surface-variant dark:text-outline-variant font-body-default hover:text-error rounded-lg px-3 py-2 flex items-center gap-3 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors duration-150" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="">Log Out</span>
+</a>
+</div>
+</aside>
+<!-- ==================== MAIN WORKSPACE ==================== -->
+<div class="pl-60 flex-1 flex flex-col min-h-screen bg-surface">
+<!-- Top Navigation Bar (Shared Component) -->
+<header class="sticky top-0 z-20 w-full h-16 px-space-xl flex justify-between items-center bg-surface-container-lowest dark:bg-surface-container-low border-b border-outline-variant dark:border-outline">
+<div class="flex items-center gap-4">
+<a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant text-on-surface font-label-sm text-label-sm hover:bg-surface-container transition-colors" href="#">
+<span class="material-symbols-outlined text-base">arrow_back_ios</span>
+<span class="">Back to Home</span>
+</a>
+<div class="h-4 w-px bg-outline-variant"></div>
+<span class="font-body-medium text-body-medium text-on-surface-variant">Shift: Morning (07:00 - 15:00)</span>
+</div>
+<div class="flex items-center gap-4">
+<!-- Date indicator -->
+<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-container text-on-surface-variant font-helper-xs text-helper-xs">
+<span class="material-symbols-outlined text-sm">calendar_today</span>
+<span class="">Thursday, 24 Oct</span>
+</div>
+<!-- Worker Badge -->
+<div class="flex items-center gap-3 pl-2">
+<div class="w-8 h-8 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center font-bold text-xs ring-1 ring-secondary/20">
+            KM
+          </div>
+<div class="flex flex-col text-left">
+<span class="font-label-sm text-label-sm text-on-surface font-semibold leading-tight">Kwame Mensah</span>
+<span class="font-helper-xs text-helper-xs text-on-surface-variant leading-tight">Cashier • Terminal #2</span>
+</div>
+</div>
+</div>
+</header>
+<!-- Canvas Content Area -->
+<main class="flex-1 p-space-xl relative flex flex-col items-center justify-center">
+<!-- FLOATING TOAST NOTIFICATION (Top-right corner) -->
+<div class="fixed top-20 right-8 z-50 flex items-center gap-3 px-4 py-3 rounded-full bg-secondary-container border border-secondary/20 text-on-secondary-container shadow-sm transition-all duration-300" id="toast-banner">
+<span class="material-symbols-outlined text-secondary font-bold" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<p class="font-label-sm text-label-sm font-semibold">
+          ✓ Sale saved (GH₵ 420.00) <span class="font-normal text-on-surface-variant">— Ready for next entry</span>
+</p>
+<button class="text-on-secondary-container hover:opacity-75 transition-opacity ml-1" onclick="document.getElementById('toast-banner').style.display='none'" type="button">
+<span class="material-symbols-outlined text-base">close</span>
+</button>
+</div>
+<!-- CENTERED FORM CARD (max-width 560px) -->
+<section class="w-full max-w-[560px] bg-surface-container-lowest dark:bg-surface-container-low border border-outline-variant dark:border-outline rounded-2xl p-8 shadow-sm relative">
+<!-- Card Header -->
+<div class="border-b border-outline-variant/60 pb-5 mb-6">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="p-2 rounded-lg bg-primary-fixed text-primary font-bold">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">point_of_sale</span>
+</span>
+<h1 class="font-title-page text-title-page text-on-surface font-bold">Record Sale</h1>
+</div>
+<span class="font-helper-xs text-helper-xs bg-surface-container px-2.5 py-1 rounded-md text-on-surface-variant font-medium">Terminal Live</span>
+</div>
+<p class="font-body-default text-body-default text-on-surface-variant mt-2">
+            Enter customer purchase. Cash will be logged to your daily shift total.
+          </p>
+</div>
+<form class="space-y-6" id="record-sale-form" onsubmit="handleFormSubmit(event)">
+<!-- FIELD 1: DUAL CRATES + LOOSE EGGS QUANTITY INPUT -->
+<div class="space-y-3">
+<label class="block font-label-sm text-label-sm text-on-surface font-semibold">
+              Quantity Sold <span class="text-error">*</span>
+</label>
+<!-- Dual Boxes Side-by-Side -->
+<div class="bg-surface-container-low dark:bg-surface-container rounded-xl p-3.5 border border-outline-variant"><div class="flex justify-between items-center mb-1.5"><span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Crates (Full crates only)</span><span class="text-[11px] font-mono text-outline">30 EGGS / CRATE</span></div><div class="flex items-center justify-between gap-4"><button class="w-12 h-12 flex items-center justify-center rounded-lg bg-surface-container-lowest border border-outline-variant text-on-surface hover:bg-surface-variant active:scale-95 transition-all" onclick="adjustCrates(-1)" type="button"><span class="material-symbols-outlined text-lg">remove</span></button><div class="flex-1 text-center"><input class="w-full text-center bg-transparent border-0 font-display-stat-md text-display-stat-md text-on-surface focus:ring-0 p-0 font-bold" id="crates-input" min="0" oninput="calculateTotal()" type="number" value="14"><span class="text-xs text-on-surface-variant font-medium">crates selected</span></div><button class="w-12 h-12 flex items-center justify-center rounded-lg bg-surface-container-lowest border border-outline-variant text-on-surface hover:bg-surface-variant active:scale-95 transition-all" onclick="adjustCrates(1)" type="button"><span class="material-symbols-outlined text-lg">add</span></button></div></div>
+<!-- Total Indicator & Hint -->
+<div class="flex items-center justify-between pt-1 px-0.5 text-on-surface-variant font-helper-xs text-helper-xs"><div class="flex items-center gap-1.5 font-body-medium text-body-medium text-on-surface"><span class="material-symbols-outlined text-primary text-base">functions</span><span class="font-semibold" id="total-eggs-display">= 420 eggs total</span><span class="text-on-surface-variant text-xs">(1 crate = 30 eggs)</span></div><span class="font-medium text-outline bg-surface-container px-2 py-0.5 rounded">Full crates only</span></div>
+</div>
+<!-- FIELD 2: AMOUNT RECEIVED (GH₵) -->
+<div class="space-y-2.5">
+<div class="flex justify-between items-center">
+<label class="font-label-sm text-label-sm text-on-surface font-semibold" for="amount-input">
+                Amount received (GH₵) <span class="text-error">*</span>
+</label>
+<span class="font-helper-xs text-helper-xs text-secondary font-medium">Cash transaction</span>
+</div>
+<!-- Large Bold Currency Input -->
+<div class="relative flex items-center rounded-xl border border-outline-variant bg-surface-container-lowest dark:bg-surface-container focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+<div class="pl-4 pr-2 flex items-center pointer-events-none text-on-surface-variant font-display-stat-md text-display-stat-md font-bold">
+                GH₵
+              </div>
+<input class="w-full bg-transparent border-0 py-3 pr-4 font-display-stat-md text-display-stat-md text-on-surface font-bold focus:ring-0 tracking-tight" id="amount-input" placeholder="0.00" type="text" value="560.00">
+</div>
+<!-- Quick Preset Chips -->
+<div class="flex items-center gap-2 pt-1">
+<button class="px-3 py-1.5 rounded-lg border border-outline-variant bg-surface-container-low hover:bg-surface-container text-on-surface font-label-sm text-label-sm font-medium active:scale-95 transition-all" onclick="addAmount(50)" type="button">
+                +GH₵ 50
+              </button>
+<button class="px-3 py-1.5 rounded-lg border border-outline-variant bg-surface-container-low hover:bg-surface-container text-on-surface font-label-sm text-label-sm font-medium active:scale-95 transition-all" onclick="addAmount(100)" type="button">
+                +GH₵ 100
+              </button>
+<button class="px-3 py-1.5 rounded-lg border border-outline-variant bg-surface-container-low hover:bg-surface-container text-primary font-label-sm text-label-sm font-semibold active:scale-95 transition-all" onclick="setFullAmount()" type="button">
+                Full Amount
+              </button>
+</div>
+<div class="rounded-lg bg-surface-container-low border border-outline-variant p-2.5 flex items-center justify-between text-xs"><div class="flex items-center gap-2 text-on-surface-variant"><span class="material-symbols-outlined text-primary text-base">sell</span><span class="font-medium">Rate per crate:</span><span class="font-semibold text-on-surface">GH₵ 40.00 / crate</span></div><div class="font-medium text-on-surface font-mono text-[11px] bg-surface-container px-2 py-1 rounded border border-outline-variant/60">14 crates × GH₵ 40.00 = GH₵ 560.00</div></div></div>
+<!-- FIELD 3: TIMESTAMP & CASHIER METADATA PILL (Read-only) -->
+<div class="rounded-lg bg-surface-container p-3 border border-outline-variant/60 flex items-center justify-between text-on-surface-variant font-helper-xs text-helper-xs">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span class="">Time: Today, 2:35 PM</span>
+</div>
+<div class="h-3 w-px bg-outline-variant"></div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">person</span>
+<span class="">Cashier: Kwame Mensah</span>
+</div>
+</div>
+<!-- ACTIONS AT BOTTOM -->
+<div class="pt-2 flex flex-col gap-3">
+<button class="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-secondary hover:bg-on-secondary-container active:scale-[0.99] text-on-secondary font-title-section text-title-section shadow-sm transition-all" type="submit">
+<span class="material-symbols-outlined font-bold">check</span>
+<span class="">Save Sale (Enter ↵)</span>
+</button>
+<div class="flex items-center justify-between px-1">
+<button class="text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm underline-offset-4 hover:underline transition-colors" onclick="window.history.back()" type="button">
+                Cancel (Esc)
+              </button>
+<span class="font-helper-xs text-helper-xs text-outline">
+                Press <kbd class="px-1 py-0.5 bg-surface-container border border-outline-variant rounded font-mono text-[10px]">Enter</kbd> to record
+              </span>
+</div>
+</div>
+</form>
+</section>
+<!-- Tactical Ledger Micro-hint -->
+<p class="mt-6 text-center font-helper-xs text-helper-xs text-outline max-w-sm">
+        Recorded transactions immediately update cashier shift balance and decrement available egg store room ledger.
+      </p>
+</main>
+</div>
+<!-- Micro-interactions Script -->
+<script>
+    function calculateTotal() {
+      const cratesInput = document.getElementById('crates-input');
+      const looseInput = document.getElementById('loose-input');
+      const display = document.getElementById('total-eggs-display');
+
+      let crates = parseInt(cratesInput.value, 10) || 0;
+      let loose = parseInt(looseInput.value, 10) || 0;
+
+      // Auto-conversion hint: Eggs over 30 automatically roll into crates
+      if (loose >= 30) {
+        const extraCrates = Math.floor(loose / 30);
+        crates += extraCrates;
+        loose = loose % 30;
+        cratesInput.value = crates;
+        looseInput.value = loose;
+      }
+
+      const total = (crates * 30) + loose;
+      display.textContent = `= ${total} eggs total`;
+    }
+
+    function adjustCrates(delta) {
+      const cratesInput = document.getElementById('crates-input');
+      let val = (parseInt(cratesInput.value, 10) || 0) + delta;
+      if (val < 0) val = 0;
+      cratesInput.value = val;
+      calculateTotal();
+    }
+
+    function adjustLoose(delta) {
+      const looseInput = document.getElementById('loose-input');
+      let val = (parseInt(looseInput.value, 10) || 0) + delta;
+      if (val < 0) val = 0;
+      looseInput.value = val;
+      calculateTotal();
+    }
+
+    function addAmount(delta) {
+      const amountInput = document.getElementById('amount-input');
+      let current = parseFloat(amountInput.value) || 0;
+      amountInput.value = (current + delta).toFixed(2);
+    }
+
+    function setFullAmount() {
+      const amountInput = document.getElementById('amount-input');
+      // Standard pricing calculation demonstration (e.g. GH₵ 45 per crate)
+      const crates = parseInt(document.getElementById('crates-input').value, 10) || 0;
+      const loose = parseInt(document.getElementById('loose-input').value, 10) || 0;
+      const calculated = (crates * 45) + (loose * 1.5);
+      amountInput.value = calculated.toFixed(2);
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      const toast = document.getElementById('toast-banner');
+      const amount = document.getElementById('amount-input').value;
+      if (toast) {
+        toast.style.display = 'flex';
+        toast.querySelector('p').innerHTML = `✓ Sale saved (GH₵ ${amount}) <span class="font-normal text-on-surface-variant">— Ready for next entry</span>`;
+      }
+    }
+
+    // Keyboard Shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        window.history.back();
+      }
+    });
+  </script>
+
+
+</body></html>

@@ -1,0 +1,2 @@
+"""Egg Book API routers."""
+

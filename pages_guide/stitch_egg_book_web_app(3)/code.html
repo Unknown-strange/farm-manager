@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Daily Book - Egg Book Admin Suite</title>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Inter Font -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS v3 -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration verbatim from theme -->
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-surface": "#1d1b18",
+            "on-secondary-fixed": "#002204",
+            "surface-container-high": "#ede7e2",
+            "surface-variant": "#e7e1dc",
+            "on-tertiary": "#ffffff",
+            "on-primary-fixed-variant": "#6a3c00",
+            "secondary": "#1b6d24",
+            "error": "#ba1a1a",
+            "surface-container-low": "#f9f2ed",
+            "primary-fixed-dim": "#ffb871",
+            "on-primary": "#ffffff",
+            "secondary-fixed": "#a3f69c",
+            "inverse-primary": "#ffb871",
+            "on-secondary-container": "#217128",
+            "inverse-on-surface": "#f6f0ea",
+            "on-secondary": "#ffffff",
+            "tertiary-container": "#2e74d0",
+            "surface-container-highest": "#e7e1dc",
+            "error-container": "#ffdad6",
+            "surface-container": "#f3ede7",
+            "surface-tint": "#8b5000",
+            "secondary-fixed-dim": "#88d982",
+            "primary-fixed": "#ffdcbe",
+            "tertiary-fixed": "#d6e3ff",
+            "primary-container": "#ab6300",
+            "surface-container-lowest": "#ffffff",
+            "tertiary-fixed-dim": "#a9c7ff",
+            "on-tertiary-container": "#fefcff",
+            "on-error": "#ffffff",
+            "primary": "#884e00",
+            "on-primary-fixed": "#2d1600",
+            "background": "#fff8f3",
+            "surface-dim": "#dfd9d4",
+            "surface": "#fff8f3",
+            "outline": "#867465",
+            "on-background": "#1d1b18",
+            "inverse-surface": "#32302d",
+            "on-primary-container": "#fffbff",
+            "outline-variant": "#d8c3b1",
+            "on-tertiary-fixed": "#001b3d",
+            "secondary-container": "#a0f399",
+            "on-tertiary-fixed-variant": "#00468c",
+            "on-secondary-fixed-variant": "#005312",
+            "surface-bright": "#fff8f3",
+            "on-surface-variant": "#534437",
+            "tertiary": "#005bb3",
+            "on-error-container": "#93000a"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-lg": "1.5rem",
+            "space-sm": "0.5rem",
+            "gutter": "1.5rem",
+            "space-xl": "2rem",
+            "margin": "2rem",
+            "space-md": "1rem",
+            "space-xs": "0.25rem"
+          },
+          "fontFamily": {
+            "title-section": ["Inter"],
+            "body-medium": ["Inter"],
+            "display-stat-md": ["Inter"],
+            "table-header": ["Inter"],
+            "table-cell": ["Inter"],
+            "helper-xs": ["Inter"],
+            "title-page": ["Inter"],
+            "label-sm": ["Inter"],
+            "body-default": ["Inter"],
+            "currency-tabular": ["Inter"],
+            "display-stat-lg": ["Inter"]
+          },
+          "fontSize": {
+            "title-section": ["18px", { "lineHeight": "26px", "fontWeight": "600" }],
+            "body-medium": ["15px", { "lineHeight": "22px", "fontWeight": "500" }],
+            "display-stat-md": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "table-header": ["12px", { "lineHeight": "16px", "letterSpacing": "0.04em", "fontWeight": "600" }],
+            "table-cell": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "helper-xs": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "title-page": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "label-sm": ["13px", { "lineHeight": "18px", "fontWeight": "500" }],
+            "body-default": ["15px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "currency-tabular": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "display-stat-lg": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    .custom-ledger-shadow {
+      box-shadow: 0 1px 3px rgba(31, 29, 26, 0.04), 0 1px 2px rgba(31, 29, 26, 0.02);
+    }
+    .custom-modal-shadow {
+      box-shadow: 0 12px 32px rgba(31, 29, 26, 0.12), 0 2px 6px rgba(31, 29, 26, 0.04);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen flex selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- FIXED LEFT SIDEBAR (240px) -->
+<aside class="w-60 h-screen fixed top-0 left-0 z-30 flex flex-col justify-between p-space-md bg-surface-container-lowest border-r border-outline-variant">
+<div class="flex flex-col gap-space-lg">
+<!-- Header Brand -->
+<div class="flex items-center gap-3 px-space-xs pt-space-xs">
+<div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm">
+<span class="material-symbols-outlined text-[24px]" data-icon="egg" style="font-variation-settings: 'FILL' 1;">egg</span>
+</div>
+<div class="flex flex-col">
+<span class="font-title-page text-title-page text-primary font-bold tracking-tight">Egg Book</span>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="font-helper-xs text-helper-xs text-on-surface-variant font-medium">Admin Suite</span>
+</div>
+</div>
+</div>
+<!-- Navigation Links -->
+<nav class="flex flex-col gap-1">
+<!-- Dashboard (Active) -->
+<a class="bg-surface-container-low text-primary font-title-section border-l-4 border-primary rounded-r-lg px-3 py-2 flex items-center gap-3 transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="dashboard" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-label-sm text-label-sm">Dashboard</span>
+</a>
+<!-- Entries -->
+<a class="text-on-surface-variant font-body-default hover:text-on-surface hover:bg-surface-container-high rounded-lg px-3 py-2 flex items-center gap-3 transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="menu_book">menu_book</span>
+<span class="font-label-sm text-label-sm">Entries</span>
+</a>
+<!-- Expenses -->
+<a class="text-on-surface-variant font-body-default hover:text-on-surface hover:bg-surface-container-high rounded-lg px-3 py-2 flex items-center gap-3 transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="payments">payments</span>
+<span class="font-label-sm text-label-sm">Expenses</span>
+</a>
+<!-- History -->
+<a class="text-on-surface-variant font-body-default hover:text-on-surface hover:bg-surface-container-high rounded-lg px-3 py-2 flex items-center gap-3 transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="history">history</span>
+<span class="font-label-sm text-label-sm">History</span>
+</a>
+<!-- End of Day -->
+<a class="text-on-surface-variant font-body-default hover:text-on-surface hover:bg-surface-container-high rounded-lg px-3 py-2 flex items-center gap-3 transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="fact_check">fact_check</span>
+<span class="font-label-sm text-label-sm">End of Day</span>
+</a>
+<!-- Users -->
+<a class="text-on-surface-variant font-body-default hover:text-on-surface hover:bg-surface-container-high rounded-lg px-3 py-2 flex items-center gap-3 transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="group">group</span>
+<span class="font-label-sm text-label-sm">Users</span>
+</a>
+</nav>
+</div>
+<!-- Bottom Footer Links -->
+<div class="flex flex-col gap-1 pt-4 border-t border-outline-variant">
+<a class="text-on-surface-variant font-body-default hover:text-on-surface hover:bg-surface-container-high rounded-lg px-3 py-2 flex items-center gap-3 transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+<span class="font-label-sm text-label-sm">Settings</span>
+</a>
+<a class="text-on-surface-variant font-body-default hover:text-on-surface hover:bg-surface-container-high rounded-lg px-3 py-2 flex items-center gap-3 transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="logout">logout</span>
+<span class="font-label-sm text-label-sm">Log Out</span>
+</a>
+</div>
+</aside>
+<!-- WORKSPACE WRAPPER (Left padding 240px for fixed sidebar) -->
+<div class="pl-60 w-full flex flex-col min-h-screen">
+<!-- TOP APP BAR -->
+<header class="sticky top-0 z-20 w-full h-16 bg-surface-container-lowest border-b border-outline-variant px-space-xl flex justify-between items-center custom-ledger-shadow">
+<div class="flex items-center gap-space-md">
+<h1 class="font-title-page text-title-page text-on-surface font-bold tracking-tight">Daily Book</h1>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-container text-on-surface-variant border border-outline-variant">
+          Ghana Store #1 - Kumasi Central
+        </span>
+</div>
+<!-- Right cluster: Quick add dropdown, Date Picker, Avatar -->
+<div class="flex items-center gap-space-md">
+<!-- Quick Add Amber Dropdown Action Button -->
+<div class="relative inline-block text-left" id="quickAddWrapper">
+<button class="bg-primary hover:bg-primary-container text-on-primary rounded-lg h-10 px-4 inline-flex items-center gap-2 font-body-medium text-body-medium shadow-sm transition-all duration-150 active:scale-[0.98]" id="quickAddBtn" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="add_circle">add_circle</span>
+<span>+ Quick add</span>
+<span class="material-symbols-outlined text-[18px]" data-icon="keyboard_arrow_down">keyboard_arrow_down</span>
+</button>
+<!-- Dropdown Menu -->
+<div class="hidden absolute right-0 mt-2 w-52 rounded-xl bg-surface-container-lowest border border-outline-variant custom-modal-shadow z-50 py-1.5 focus:outline-none" id="quickAddDropdown">
+<button class="w-full text-left px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container flex items-center gap-3 transition-colors">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary"></span>
+<span class="font-label-sm text-label-sm">Record Sale</span>
+</button>
+<button class="w-full text-left px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container flex items-center gap-3 transition-colors">
+<span class="w-2.5 h-2.5 rounded-full bg-tertiary"></span>
+<span class="font-label-sm text-label-sm">Record Received Stock</span>
+</button>
+<button class="w-full text-left px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container flex items-center gap-3 transition-colors">
+<span class="w-2.5 h-2.5 rounded-full bg-error"></span>
+<span class="font-label-sm text-label-sm">Log Damaged / Cracked</span>
+</button>
+<div class="my-1 border-t border-outline-variant"></div>
+<button class="w-full text-left px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container flex items-center gap-3 transition-colors">
+<span class="w-2.5 h-2.5 rounded-full bg-outline"></span>
+<span class="font-label-sm text-label-sm">Record Expense (Feed/Transit)</span>
+</button>
+</div>
+</div>
+<!-- Date Picker Navigator -->
+<div class="flex items-center bg-surface-container-low border border-outline-variant rounded-lg px-2.5 py-1.5 gap-2 text-on-surface">
+<button class="p-1 hover:bg-surface-container rounded transition-colors text-on-surface-variant hover:text-on-surface" title="Previous Day">
+<span class="material-symbols-outlined text-[18px]" data-icon="arrow_back_ios">arrow_back_ios</span>
+</button>
+<div class="flex items-center gap-1.5 px-1.5">
+<span class="material-symbols-outlined text-[18px] text-primary" data-icon="calendar_today">calendar_today</span>
+<span class="font-label-sm text-label-sm font-semibold tracking-tight">Today, 24 Oct 2024</span>
+</div>
+<button class="p-1 hover:bg-surface-container rounded transition-colors text-on-surface-variant hover:text-on-surface" title="Next Day">
+<span class="material-symbols-outlined text-[18px]" data-icon="arrow_forward_ios">arrow_forward_ios</span>
+</button>
+</div>
+<!-- User Profile Avatar Badge -->
+<div class="flex items-center gap-3 pl-2 border-l border-outline-variant">
+<div class="relative">
+<img class="w-9 h-9 rounded-full object-cover border border-outline-variant" data-alt="Close up photographic headshot of Kofi Asante, a confident Ghanaian farm entrepreneur in his late 30s wearing a warm earthy linen shirt against a soft rustic farm office background. The image has warm amber natural sunlight, sharp focus on facial features, confident, professional light-mode aesthetic matching warm unbleached tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDr_5DBc3hhwgr62WCcJTiWiIO0Vx0Ji74ysAUflqPNFipn2Ux6fHrVr2yGJxHwJp6NstJXTTzIc74C1B5Bq_-qQsrXX4Jh5LVUKHvngS_WsEKkzg0tTa1s2ThwgM2G1OWWgLgu--AhcV7IHsX3TK78bOz7AMFBsASEmnVUL36_rtleQrrEucUquD69xC8ZQulmUh0I6xHR3BPmecGlmtLCruWGoOv-UNWvl_UpCv0"/>
+<span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-secondary border-2 border-surface-container-lowest"></span>
+</div>
+<div class="flex flex-col text-left">
+<span class="font-label-sm text-label-sm font-semibold text-on-surface leading-tight">Kofi Asante</span>
+<span class="font-helper-xs text-helper-xs text-on-surface-variant leading-tight">Owner</span>
+</div>
+</div>
+</div>
+</header>
+<!-- MAIN SCROLLABLE CONTENT CANVAS (Max-width 1100px) -->
+<main class="flex-1 w-full bg-background px-space-xl py-space-lg">
+<div class="max-w-[1100px] mx-auto flex flex-col gap-space-lg">
+<!-- ALERT BANNER -->
+<div class="w-full bg-[#FFF8ED] border border-[#F3DEBD] rounded-xl px-4 py-3 flex items-center justify-between shadow-sm">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-primary-fixed flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]" data-icon="warning" style="font-variation-settings: 'FILL' 1;">warning</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm font-bold text-on-primary-fixed">Shift still open</span>
+<span class="text-outline-variant text-xs">•</span>
+<span class="font-body-default text-table-cell text-on-surface-variant">Remember to run End of Day physical egg count before 8:00 PM</span>
+</div>
+</div>
+<button class="font-label-sm text-label-sm text-primary hover:text-primary-container font-semibold px-3 py-1 rounded-lg hover:bg-surface-container transition-colors inline-flex items-center gap-1">
+<span>Audit Count</span>
+<span class="material-symbols-outlined text-[16px]" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+<!-- ROW 1: 4 STAT CARDS -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter">
+<!-- Card 1: Remaining after today (HERO CARD - Warm Amber Theme) -->
+<div class="bg-surface-container-lowest border-2 border-primary-fixed-dim rounded-xl p-5 custom-ledger-shadow relative overflow-hidden flex flex-col justify-between">
+<div class="absolute -right-3 -bottom-3 text-primary opacity-[0.07] pointer-events-none">
+<span class="material-symbols-outlined text-[96px]" data-icon="inventory_2" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+</div>
+<div>
+<div class="flex justify-between items-center mb-2">
+<span class="font-table-header text-table-header uppercase text-primary font-semibold tracking-wider">Remaining after today</span>
+<span class="material-symbols-outlined text-primary text-[20px]" data-icon="egg" style="font-variation-settings: 'FILL' 1;">egg</span>
+</div>
+<div class="font-display-stat-md text-display-stat-md text-on-surface font-bold">
+                148 <span class="text-lg font-medium text-on-surface-variant">crates</span> + 12 <span class="text-lg font-medium text-on-surface-variant">eggs</span>
+</div>
+</div>
+<div class="mt-3 pt-2.5 border-t border-outline-variant flex items-center justify-between">
+<span class="font-helper-xs text-helper-xs text-on-surface-variant font-medium">= 4,452 eggs in stock</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#FFF8ED] text-primary">Live Book</span>
+</div>
+</div>
+<!-- Card 2: Amount from sales (Green accent) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 custom-ledger-shadow flex flex-col justify-between hover:border-secondary transition-colors">
+<div>
+<div class="flex justify-between items-center mb-2">
+<span class="font-table-header text-table-header uppercase text-on-surface-variant tracking-wider">Amount from sales</span>
+<div class="w-7 h-7 rounded-lg bg-[#EAF5EA] flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[18px]" data-icon="point_of_sale">point_of_sale</span>
+</div>
+</div>
+<div class="font-display-stat-md text-display-stat-md text-secondary font-bold">
+                GH₵ 6,420<span class="text-xl font-semibold">.00</span>
+</div>
+</div>
+<div class="mt-3 pt-2.5 border-t border-outline-variant flex items-center justify-between">
+<span class="font-helper-xs text-helper-xs text-on-surface-variant font-medium">42 customer transactions</span>
+<span class="font-helper-xs text-helper-xs text-secondary font-semibold">30 crates sold</span>
+</div>
+</div>
+<!-- Card 3: Total spent (Red accent) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 custom-ledger-shadow flex flex-col justify-between hover:border-error transition-colors">
+<div>
+<div class="flex justify-between items-center mb-2">
+<span class="font-table-header text-table-header uppercase text-on-surface-variant tracking-wider">Total spent</span>
+<div class="w-7 h-7 rounded-lg bg-error-container flex items-center justify-center text-error">
+<span class="material-symbols-outlined text-[18px]" data-icon="receipt_long">receipt_long</span>
+</div>
+</div>
+<div class="font-display-stat-md text-display-stat-md text-error font-bold">
+                GH₵ 1,850<span class="text-xl font-semibold">.00</span>
+</div>
+</div>
+<div class="mt-3 pt-2.5 border-t border-outline-variant flex items-center justify-between">
+<span class="font-helper-xs text-helper-xs text-on-surface-variant font-medium">Feed &amp; transport costs</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-error-container text-on-error-container">2 Entries</span>
+</div>
+</div>
+<!-- Card 4: Sales minus expenses (Emerald bold) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 custom-ledger-shadow flex flex-col justify-between hover:border-secondary transition-colors">
+<div>
+<div class="flex justify-between items-center mb-2">
+<span class="font-table-header text-table-header uppercase text-on-surface-variant tracking-wider">Sales minus expenses</span>
+<div class="w-7 h-7 rounded-lg bg-[#EAF5EA] flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[18px]" data-icon="account_balance_wallet">account_balance_wallet</span>
+</div>
+</div>
+<div class="font-display-stat-md text-display-stat-md text-secondary font-bold">
+                GH₵ 4,570<span class="text-xl font-semibold">.00</span>
+</div>
+</div>
+<div class="mt-3 pt-2.5 border-t border-outline-variant flex items-center justify-between">
+<span class="font-helper-xs text-helper-xs text-on-surface-variant font-medium">Net profit today</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#EAF5EA] text-secondary border border-[#C4E5C5]">
+                +24% vs yesterday
+              </span>
+</div>
+</div>
+</div>
+<!-- ROW 2: TWO COLUMN SPLIT (LEFT 65% / RIGHT 35%) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start">
+<!-- LEFT COLUMN (65% width => 8 of 12 cols): THE DAILY BOOK STRUCTURED LEDGER -->
+<section class="lg:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden custom-ledger-shadow">
+<!-- Ledger Header -->
+<div class="px-6 py-4 bg-surface-container-low border-b border-outline-variant flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[20px]" data-icon="menu_book">menu_book</span>
+</div>
+<div>
+<h2 class="font-title-section text-title-section text-on-surface font-semibold">The Daily Book</h2>
+<p class="font-helper-xs text-helper-xs text-on-surface-variant">Structured standard Ghana paper egg ledger balancing count &amp; cash</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" title="Print Ledger">
+<span class="material-symbols-outlined text-[18px]" data-icon="print">print</span>
+</button>
+<button class="p-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" title="Download Excel">
+<span class="material-symbols-outlined text-[18px]" data-icon="download">download</span>
+</button>
+</div>
+</div>
+<!-- Ledger Table Rows matching authentic paper egg book structure -->
+<div class="divide-y divide-outline-variant">
+<!-- Section: Physical Egg Balance Walkthrough -->
+<div class="bg-surface-container px-6 py-2 flex items-center justify-between text-xs font-semibold text-on-surface-variant tracking-wider uppercase">
+<span>Egg Physical Units (Crates &amp; Singles)</span>
+<span>Tally Walkthrough</span>
+</div>
+<!-- Row 1: Remaining from previous day -->
+<div class="px-6 py-3.5 flex items-center justify-between hover:bg-surface-bright transition-colors">
+<div class="flex items-center gap-3">
+<span class="w-2.5 h-2.5 rounded-full bg-outline"></span>
+<span class="font-body-medium text-body-medium text-on-surface font-medium">Remaining from previous day</span>
+</div>
+<div class="font-currency-tabular text-currency-tabular text-on-surface font-semibold text-right">
+                  120 crates <span class="text-on-surface-variant font-normal">+ 0 eggs</span>
+</div>
+</div>
+<!-- Row 2: (+) Eggs gotten today -->
+<div class="px-6 py-3.5 flex items-center justify-between bg-[#F4F8FD]/50 hover:bg-[#F4F8FD] transition-colors">
+<div class="flex items-center gap-3">
+<span class="w-6 h-6 rounded-md bg-[#EBF3FC] text-tertiary flex items-center justify-center font-bold text-xs">+</span>
+<span class="font-body-medium text-body-medium text-tertiary font-medium">(+) Eggs gotten today (Farm Intake)</span>
+</div>
+<div class="font-currency-tabular text-currency-tabular text-tertiary font-bold text-right">
+                  60 crates <span class="font-medium">+ 10 eggs</span>
+</div>
+</div>
+<!-- Row 3: (-) Eggs cracked -->
+<div class="px-6 py-3.5 flex items-center justify-between bg-[#FDF5F5]/50 hover:bg-[#FDF5F5] transition-colors">
+<div class="flex items-center gap-3">
+<span class="w-6 h-6 rounded-md bg-error-container text-error flex items-center justify-center font-bold text-xs">-</span>
+<span class="font-body-medium text-body-medium text-error font-medium">(-) Eggs cracked (Transit / Crate loss)</span>
+</div>
+<div class="font-currency-tabular text-currency-tabular text-error font-bold text-right">
+                  1 crate <span class="font-medium">+ 18 eggs</span>
+</div>
+</div>
+<!-- Row 4: (-) Eggs sold -->
+<div class="px-6 py-3.5 flex items-center justify-between bg-[#F4FAF4]/50 hover:bg-[#F4FAF4] transition-colors">
+<div class="flex items-center gap-3">
+<span class="w-6 h-6 rounded-md bg-[#EAF5EA] text-secondary flex items-center justify-center font-bold text-xs">-</span>
+<span class="font-body-medium text-body-medium text-secondary font-medium">(-) Eggs sold (Retail &amp; Bulk Wholesalers)</span>
+</div>
+<div class="font-currency-tabular text-currency-tabular text-secondary font-bold text-right">
+                  30 crates <span class="font-medium">+ 10 eggs</span>
+</div>
+</div>
+<!-- Section: Financial Cash Ledger Walkthrough -->
+<div class="bg-surface-container px-6 py-2 flex items-center justify-between text-xs font-semibold text-on-surface-variant tracking-wider uppercase">
+<span>Daily Financial Breakdown</span>
+<span>Cedis (GH₵)</span>
+</div>
+<!-- Row 5: Amount from sales -->
+<div class="px-6 py-3.5 flex items-center justify-between hover:bg-surface-bright transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[18px] text-secondary" data-icon="add_circle">add_circle</span>
+<span class="font-body-medium text-body-medium text-on-surface">Amount from sales</span>
+</div>
+<div class="font-currency-tabular text-currency-tabular text-secondary font-bold text-right">
+                  GH₵ 6,420.00
+                </div>
+</div>
+<!-- Row 6: Feed expense -->
+<div class="px-6 py-3.5 flex items-center justify-between hover:bg-surface-bright transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[18px] text-error" data-icon="remove_circle">remove_circle</span>
+<div class="flex flex-col">
+<span class="font-body-medium text-body-medium text-on-surface">Feed expense</span>
+<span class="font-helper-xs text-helper-xs text-on-surface-variant">Layers Mash 8 bags (Kumasi Milling Depot)</span>
+</div>
+</div>
+<div class="font-currency-tabular text-currency-tabular text-error font-semibold text-right">
+                  GH₵ 1,600.00
+                </div>
+</div>
+<!-- Row 7: Other expenses -->
+<div class="px-6 py-3.5 flex items-center justify-between hover:bg-surface-bright transition-colors">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[18px] text-error" data-icon="remove_circle">remove_circle</span>
+<div class="flex flex-col">
+<span class="font-body-medium text-body-medium text-on-surface">Other expenses</span>
+<span class="font-helper-xs text-helper-xs text-on-surface-variant">Local tricycle cart fuel &amp; sanitization sawdust</span>
+</div>
+</div>
+<div class="font-currency-tabular text-currency-tabular text-error font-semibold text-right">
+                  GH₵ 250.00
+                </div>
+</div>
+<!-- Row 8: Total spent subtotal -->
+<div class="px-6 py-3 flex items-center justify-between bg-surface-container-low">
+<div class="flex items-center gap-3 pl-3">
+<span class="font-body-medium text-body-medium text-on-surface-variant font-semibold">Total spent (Gross Outflows)</span>
+</div>
+<div class="font-currency-tabular text-currency-tabular text-error font-bold text-right">
+                  GH₵ 1,850.00
+                </div>
+</div>
+<!-- Row 9: NET CASH (SALES MINUS EXPENSES) HERO BANNER ROW -->
+<div class="px-6 py-5 bg-[#F2F8F2] flex items-center justify-between border-t-2 border-secondary/30">
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-title-section text-title-section text-secondary font-bold uppercase tracking-tight">NET CASH</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-[#EAF5EA] text-secondary border border-[#C4E5C5]">
+                      Settled In Hand
+                    </span>
+</div>
+<span class="font-helper-xs text-helper-xs text-on-surface-variant mt-0.5">Sales minus expenses calculated at close of desk</span>
+</div>
+<div class="text-right">
+<div class="font-display-stat-lg text-[32px] leading-8 text-secondary font-extrabold tracking-tight">
+                    GH₵ 4,570.00
+                  </div>
+<span class="font-helper-xs text-helper-xs text-on-surface-variant">Target threshold fulfilled</span>
+</div>
+</div>
+</div>
+<!-- Ledger Action Footer -->
+<div class="p-4 bg-surface-container-lowest border-t border-outline-variant flex items-center justify-between">
+<div class="flex items-center gap-2 text-on-surface-variant text-xs">
+<span class="material-symbols-outlined text-[16px] text-secondary" data-icon="verified" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span>Ledger mathematically synced with worker sales journals</span>
+</div>
+<button class="px-4 py-2 bg-surface-container text-on-surface hover:bg-surface-container-high rounded-lg text-sm font-semibold transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="rate_review">rate_review</span>
+<span>Manager Audit Sign-off</span>
+</button>
+</div>
+</section>
+<!-- RIGHT COLUMN (35% width => 4 of 12 cols): SALES BY WORKER & HEALTH METER -->
+<div class="lg:col-span-4 flex flex-col gap-gutter">
+<!-- Sales by Worker Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 custom-ledger-shadow flex flex-col gap-4">
+<div class="flex justify-between items-center pb-3 border-b border-outline-variant">
+<div>
+<h3 class="font-title-section text-title-section text-on-surface font-semibold">Sales by Worker</h3>
+<p class="font-helper-xs text-helper-xs text-on-surface-variant">Individual frontline cashier tallies</p>
+</div>
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-container text-on-surface-variant">
+                  3 Active
+                </span>
+</div>
+<!-- Worker 1: Kwame Mensah -->
+<div class="p-3.5 rounded-xl border border-outline-variant hover:border-primary transition-all duration-150 bg-surface-container-lowest flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<img class="w-8 h-8 rounded-full object-cover border border-outline-variant" data-alt="Portrait avatar badge of Kwame Mensah, a friendly young Ghanaian farm worker wearing a khaki work shirt with an earnest smile in a store room with egg crates neatly stacked behind him. High key lighting, warm golden tones matching clean minimalist web UI design." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBlX1Na9CgGucUZLFnjaFyV1dEVwI2oLYuks_CCWppAIsuTEyWDLh6teJls89MeSy6VO6CfSbPX6AJOLM9aPg7w9AFs8d3dvg8bHVeGzEP9n3psIcjAw6ktZEk864MqEh7ZJUQTPuHMfVQt1gWkVI2G9e2uTYhY_oKUZsR51UYHWx2JzjGO68JaXhaP_4TmtvtfqYe6vjjkhfVGum3E3PvQzlfido_aRDfenhfmJPE"/>
+<div>
+<h4 class="font-label-sm text-label-sm font-semibold text-on-surface">Kwame Mensah</h4>
+<p class="font-helper-xs text-helper-xs text-on-surface-variant">Morning Shift • 18 sales</p>
+</div>
+</div>
+<button class="font-label-sm text-label-sm text-primary hover:text-primary-container font-semibold inline-flex items-center gap-0.5 group">
+<span>Filter</span>
+<span class="material-symbols-outlined text-[16px] group-hover:translate-x-0.5 transition-transform" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<div class="flex items-center justify-between pt-2 border-t border-outline-variant text-xs">
+<span class="text-on-surface-variant">Recorded Volume</span>
+<span class="font-currency-tabular text-currency-tabular font-bold text-secondary">GH₵ 2,840.00</span>
+</div>
+</div>
+<!-- Worker 2: Ama Serwaa -->
+<div class="p-3.5 rounded-xl border border-outline-variant hover:border-primary transition-all duration-150 bg-surface-container-lowest flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<img class="w-8 h-8 rounded-full object-cover border border-outline-variant" data-alt="Portrait avatar badge of Ama Serwaa, a Ghanaian female inventory cashier with a focused expression, wearing a tidy green farm apron with neat hair tied back in a modern light-toned office stall. Crisp clean photography, warm egg yolk golden undertone matching the application aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_RiEIR36CLfauSAbKR_pMNWg91tm_qx7SmuA93BaWXevDeKPSnuZvww3LeLfEVZxgJNq6glpxBdRkqd-WzMXXKbNHJL3RaFcth_ZMgfjx9fjY-hwPD0qgQybQaB8uDBJZBEwcK1VKiDqfhSmCv8CeNrbQ0WaU6DxvoSLdflVyIAKJ18KqGmTb-Z19dvYB6RDB3vtMMKntEY-S2fzSRp_uqcI1gSy-YPduIZwJk4w"/>
+<div>
+<h4 class="font-label-sm text-label-sm font-semibold text-on-surface">Ama Serwaa</h4>
+<p class="font-helper-xs text-helper-xs text-on-surface-variant">Midday Shift • 14 sales</p>
+</div>
+</div>
+<button class="font-label-sm text-label-sm text-primary hover:text-primary-container font-semibold inline-flex items-center gap-0.5 group">
+<span>Filter</span>
+<span class="material-symbols-outlined text-[16px] group-hover:translate-x-0.5 transition-transform" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<div class="flex items-center justify-between pt-2 border-t border-outline-variant text-xs">
+<span class="text-on-surface-variant">Recorded Volume</span>
+<span class="font-currency-tabular text-currency-tabular font-bold text-secondary">GH₵ 2,180.00</span>
+</div>
+</div>
+<!-- Worker 3: Kofi (Owner) -->
+<div class="p-3.5 rounded-xl border border-outline-variant hover:border-primary transition-all duration-150 bg-surface-container-lowest flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<img class="w-8 h-8 rounded-full object-cover border border-outline-variant" data-alt="Small thumbnail avatar of Kofi Asante, Ghanaian store owner with confident expression and light linen farm shirt in warm natural light, consistent with the top bar avatar. Clean light mode styling, earthy farm tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC4bYYuG0CcQg1BndNjeGa4K4_I4K3k89MlJ1xnW_10_mU9RsKWQur6xv3lgqnDpWmoTBDBDAevAEgrZynM4pYh7RzLFZS5uV90xsr6SUny8ioC6TBS3nYTONS77-9qswLmN4V1ailHFAZzZDS-MYTLYZwzjUWSncK83p8HMtdZ0vbXh-Zr2hlDwCQlrPc5sHCPvBvhLa3hHlRt9wXNrXGzdtWqxsi9NYvwOvce3bU"/>
+<div>
+<h4 class="font-label-sm text-label-sm font-semibold text-on-surface">Kofi (Owner)</h4>
+<p class="font-helper-xs text-helper-xs text-on-surface-variant">Wholesale direct • 10 sales</p>
+</div>
+</div>
+<button class="font-label-sm text-label-sm text-primary hover:text-primary-container font-semibold inline-flex items-center gap-0.5 group">
+<span>Filter</span>
+<span class="material-symbols-outlined text-[16px] group-hover:translate-x-0.5 transition-transform" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<div class="flex items-center justify-between pt-2 border-t border-outline-variant text-xs">
+<span class="text-on-surface-variant">Recorded Volume</span>
+<span class="font-currency-tabular text-currency-tabular font-bold text-secondary">GH₵ 1,400.00</span>
+</div>
+</div>
+</div>
+<!-- Stock Summary Health Meter Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 custom-ledger-shadow flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-lg bg-[#EAF5EA] text-secondary flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]" data-icon="health_and_safety">health_and_safety</span>
+</div>
+<h3 class="font-title-section text-title-section text-on-surface font-semibold">Stock Health</h3>
+</div>
+<span class="font-currency-tabular text-currency-tabular text-secondary font-bold">92%</span>
+</div>
+<!-- Meter Bar -->
+<div class="flex flex-col gap-1.5">
+<div class="w-full bg-surface-container-high rounded-full h-3 overflow-hidden p-0.5 border border-outline-variant">
+<div class="bg-secondary h-full rounded-full transition-all duration-500" style="width: 92%;"></div>
+</div>
+<div class="flex justify-between items-center text-xs text-on-surface-variant">
+<span>Critical Reorder (30 crates)</span>
+<span class="font-medium text-secondary">Safe buffer level: 92%</span>
+</div>
+</div>
+<!-- Health Detail Callout -->
+<div class="p-3 bg-surface-container-low rounded-lg border border-outline-variant flex items-start gap-2.5">
+<span class="material-symbols-outlined text-primary text-[18px] mt-0.5" data-icon="info">info</span>
+<p class="font-helper-xs text-helper-xs text-on-surface-variant leading-relaxed">
+                  Store inventory is currently optimal. Current reserves guarantee 4.9 operational days before next farm dispatch is needed.
+                </p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Micro-interactions Script for Dropdown -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const quickAddBtn = document.getElementById('quickAddBtn');
+      const quickAddDropdown = document.getElementById('quickAddDropdown');
+
+      if (quickAddBtn && quickAddDropdown) {
+        quickAddBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          quickAddDropdown.classList.toggle('hidden');
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!quickAddDropdown.contains(e.target) && !quickAddBtn.contains(e.target)) {
+            quickAddDropdown.classList.add('hidden');
+          }
+        });
+      }
+    });
+  </script>
+</body></html>
