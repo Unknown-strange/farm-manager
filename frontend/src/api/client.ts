@@ -21,9 +21,14 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Only redirect to /login on 401 if it's an authenticated session expiring,
+    // NOT when submitting credentials on the login endpoint itself.
+    const isLoginRequest = error.config?.url?.includes('/auth/login')
+    if (error.response?.status === 401 && !isLoginRequest) {
       sessionStorage.removeItem('token')
-      window.location.replace('/login')
+      if (window.location.pathname !== '/login') {
+        window.location.replace('/login')
+      }
     }
     // 403 is handled per-call with a toast — see useToast
     return Promise.reject(error)
