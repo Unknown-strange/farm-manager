@@ -110,14 +110,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS setup — allow all HTTP/HTTPS browser origins (PC, mobile, Vercel, Render, LAN IPs)
+# CORS setup — Bearer token auth is used (no cookies), so allow_origins=["*"]
+# with allow_credentials=False guarantees full compatibility with Safari, iOS WebKit,
+# Mozilla Firefox, Chrome, and Edge without wildcard+credentials preflight rejection.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_origin_regex=r"^https?://.*$",
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=86400,
 )
 
 # Consistent error format per BACKEND_FLOW.md Section 11
@@ -148,6 +151,17 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "detail": "Input validation failed",
             "code": "VALIDATION_ERROR",
             "errors": jsonable_encoder(exc.errors()),
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "detail": "Internal server error",
+            "code": "INTERNAL_ERROR",
         },
     )
 
