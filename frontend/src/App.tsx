@@ -61,7 +61,7 @@ export default function App() {
                         <Route
                           path="home"
                           element={
-                            <RequirePermission permission="events:create">
+                            <RequirePermission permission="events:create,summary:read_own,events:read_own,events:read_all">
                               <Home />
                             </RequirePermission>
                           }

@@ -105,10 +105,19 @@ def get_current_user(
     return user
 
 
+def get_user_permissions(user: User) -> set[str]:
+    """Returns the effective permissions set for the given user, taking custom permissions or role defaults into account."""
+    if user.role == "admin":
+        return settings.role_permissions.get("admin", {"*"})
+    if user.permissions is not None:
+        return {p.strip() for p in user.permissions.split(",") if p.strip()}
+    return settings.role_permissions.get(user.role, set())
+
+
 def require_permission(*needed: str) -> Callable[[User], User]:
     """Dependency factory checking whether the current user has any of the needed permissions."""
     def dependency(current_user: User = Depends(get_current_user)) -> User:
-        granted = settings.role_permissions.get(current_user.role, set())
+        granted = get_user_permissions(current_user)
         if has_permission(granted, *needed):
             return current_user
         raise HTTPException(
@@ -121,7 +130,7 @@ def require_permission(*needed: str) -> Callable[[User], User]:
 
 def scope_events(query: Select, user: User) -> Select:
     """Applies ownership filtering to an EggEvent query if the user only has events:read_own."""
-    granted = settings.role_permissions.get(user.role, set())
+    granted = get_user_permissions(user)
     if not has_permission(granted, "events:read_all"):
         return query.where(EggEvent.user_id == user.id)
     return query

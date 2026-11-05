@@ -26,8 +26,19 @@ export interface DailyBookSummary {
   projected_net_margin?: string | number
   locked: boolean
   counted_eggs?: number | null
+  actual_revenue?: string | number | null
+  actual_expenses?: string | number | null
+  actual_sold_eggs?: number | null
+  recorded_revenue?: string | number | null
+  recorded_expenses?: string | number | null
+  recorded_sold?: number | null
+  computed_closing?: number | null
+  reconciled?: boolean
   closed_at?: string | null
   by_worker: WorkerSalesSummary[]
+  logged_by?: string[]
+  opening_anchor_date?: string | null
+  opening_anchor_eggs?: number | null
 }
 
 export type SummaryPeriod = 'day' | 'week' | 'month' | 'year' | 'all' | 'custom'

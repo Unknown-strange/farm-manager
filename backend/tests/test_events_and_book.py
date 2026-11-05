@@ -399,6 +399,12 @@ def test_beginning_entry_balances_and_historical_borrowed_flow(client, admin_hea
     assert float(ps2["borrowed_unpaid_amount"]) == 135.00
     assert float(ps2["money_left_with_borrowed"]) == 1635.00
 
+    # Also verify Summary page default period=week shows the unpaid borrowed amount (135.00) and projected money (1635.00)
+    ps_week = client.get(f"/summary/period?period=week&date={today}", headers=admin_headers).json()
+    assert float(ps_week["money_left_present"]) == 1500.00
+    assert float(ps_week["borrowed_unpaid_amount"]) == 135.00
+    assert float(ps_week["money_left_with_borrowed"]) == 1635.00
+
     # 3. Admin marks the borrowed entry as Paid -> present money increases to 1635.00
     pay_res = client.post(f"/events/{b_id}/pay", headers=admin_headers)
     assert pay_res.status_code == 200
@@ -416,6 +422,162 @@ def test_beginning_entry_balances_and_historical_borrowed_flow(client, admin_hea
     ps4 = client.get(f"/summary/period?period=all&date={today}", headers=admin_headers).json()
     assert float(ps4["money_left_present"]) == 1500.00
     assert float(ps4["borrowed_unpaid_amount"]) == 135.00
+
+
+def test_reconciliation_overrides_carry_forward_and_unlock(client, admin_headers, staff_headers):
+    """Tests that locking a day with physical count and actuals overrides daily book,
+    anchors subsequent opening stock, adjusts Money We Have, and correctly rolls back on unlock."""
+    d1 = "2026-03-01"
+    d2 = "2026-03-02"
+
+    # Reset beginning settings
+    client.patch(
+        "/settings",
+        json={"beginning_eggs": 100, "target_present_money": "500.00"},
+        headers=admin_headers,
+    )
+
+    # Log entries on d1 (using admin_headers to set specific business_date)
+    client.post("/events", json={"type": "received", "eggs": 200, "business_date": d1}, headers=admin_headers)
+    client.post(
+        "/events",
+        json={"type": "sold", "eggs": 50, "amount": "75.00", "is_borrowed": False, "business_date": d1},
+        headers=admin_headers,
+    )
+    client.post(
+        "/expenses",
+        json={"category": "feed", "name": "Feed bag", "amount": "20.00", "business_date": d1},
+        headers=admin_headers,
+    )
+
+    # Initial book for d1
+    b1_before = client.get(f"/summary?date={d1}", headers=admin_headers).json()
+    assert b1_before["opening"] == 100
+    assert b1_before["closing"] == 250
+    assert float(b1_before["revenue"]) == 75.00
+    assert float(b1_before["total_expenses"]) == 20.00
+    assert b1_before["locked"] is False
+    assert b1_before["reconciled"] is False
+
+    # Day 2 opening before reconciliation
+    b2_before = client.get(f"/summary?date={d2}", headers=admin_headers).json()
+    assert b2_before["opening"] == 250
+
+    # Lock d1 with actual overrides: counted 240, actual revenue 100.00, actual expenses 30.00, actual sold 55
+    lock_res = client.post(
+        f"/closings/{d1}",
+        json={
+            "counted_eggs": 240,
+            "actual_revenue": "100.00",
+            "actual_expenses": "30.00",
+            "actual_sold_eggs": 55,
+        },
+        headers=admin_headers,
+    )
+    assert lock_res.status_code == 200
+    closing_data = lock_res.json()
+    assert closing_data["locked"] is True
+    assert closing_data["counted_eggs"] == 240
+    assert float(closing_data["actual_revenue"]) == 100.00
+    assert float(closing_data["actual_expenses"]) == 30.00
+    assert closing_data["actual_sold_eggs"] == 55
+    assert closing_data["difference_eggs"] == -10
+
+    # Verify d1 daily book now reflects actuals and shows reconciled flag
+    b1_after = client.get(f"/summary?date={d1}", headers=admin_headers).json()
+    assert b1_after["closing"] == 240
+    assert float(b1_after["revenue"]) == 100.00
+    assert float(b1_after["total_expenses"]) == 30.00
+    assert b1_after["sold"] == 55
+    assert b1_after["locked"] is True
+    assert b1_after["reconciled"] is True
+    assert float(b1_after["recorded_revenue"]) == 75.00
+    assert float(b1_after["recorded_expenses"]) == 20.00
+    assert b1_after["recorded_sold"] == 50
+    assert b1_after["computed_closing"] == 250
+
+    # Verify d2 opening is now anchored at 240
+    b2_after = client.get(f"/summary?date={d2}", headers=admin_headers).json()
+    assert b2_after["opening"] == 240
+
+    # Verify all-time Money We Have (Present) reflects overrides:
+    # 500 (beginning) + 100 (actual rev) - 30 (actual exp) = 570.00
+    ps_all = client.get(f"/summary/period?period=all&date={d2}", headers=admin_headers).json()
+    assert float(ps_all["money_left_present"]) == 570.00
+    assert ps_all["closing_eggs"] == 240
+
+    # Unlock d1
+    unlock_res = client.post(f"/closings/{d1}/unlock", headers=admin_headers)
+    assert unlock_res.status_code == 200
+    assert unlock_res.json()["locked"] is False
+
+    # Verify d1 reverts to recorded values
+    b1_unlocked = client.get(f"/summary?date={d1}", headers=admin_headers).json()
+    assert b1_unlocked["locked"] is False
+    assert b1_unlocked["reconciled"] is False
+    assert b1_unlocked["closing"] == 250
+    assert float(b1_unlocked["revenue"]) == 75.00
+    assert float(b1_unlocked["total_expenses"]) == 20.00
+
+    # Verify d2 opening stock reverts to 250
+    b2_unlocked = client.get(f"/summary?date={d2}", headers=admin_headers).json()
+    assert b2_unlocked["opening"] == 250
+
+    # Verify Money We Have reverts: 500 + 75 - 20 = 555.00
+    ps_all_unlocked = client.get(f"/summary/period?period=all&date={d2}", headers=admin_headers).json()
+    assert float(ps_all_unlocked["money_left_present"]) == 555.00
+
+
+def test_previous_day_32_crates_today_16_received_5_sold_equals_43_crates(client, admin_headers, staff_headers):
+    """Verifies that 32 crates opening + 16 crates received - 5 crates sold = 43 crates remaining."""
+    from datetime import timedelta
+    d1 = date(2026, 7, 1)
+    d2 = d1 + timedelta(days=1)
+
+    # Day 1: locked storeroom count of 32 crates (32 * 30 = 960 eggs)
+    lock_res = client.post(
+        f"/closings/{d1}",
+        json={"counted_eggs": 960},
+        headers=admin_headers,
+    )
+    assert lock_res.status_code == 200
+
+    # Day 2: receive 16 crates (16 * 30 = 480 eggs)
+    rec_res = client.post(
+        "/events",
+        json={"type": "received", "eggs": 480, "business_date": str(d2)},
+        headers=admin_headers,
+    )
+    assert rec_res.status_code == 201
+
+    # Day 2: sell 5 crates (5 * 30 = 150 eggs)
+    sale_res = client.post(
+        "/events",
+        json={"type": "sold", "eggs": 150, "crates": 5, "price_per_crate": 40.00, "business_date": str(d2)},
+        headers=admin_headers,
+    )
+    assert sale_res.status_code == 201
+
+    # Check Day 2 daily book
+    book_res = client.get(f"/summary?date={d2}", headers=admin_headers)
+    assert book_res.status_code == 200
+    book = book_res.json()
+
+    # Opening must be 960 eggs (32 crates)
+    assert book["opening"] == 960
+    assert book["opening_anchor_date"] == str(d1)
+    assert book["opening_anchor_eggs"] == 960
+
+    # Gotten = 480 (16 crates), Sold = 150 (5 crates)
+    assert book["gotten"] == 480
+    assert book["sold"] == 150
+
+    # Closing must be 960 + 480 - 150 = 1290 eggs = 43 crates
+    assert book["closing"] == 1290
+    assert book["closing"] // 30 == 43
+    assert book["closing"] % 30 == 0
+
+
 
 
 

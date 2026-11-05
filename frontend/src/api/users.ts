@@ -5,6 +5,7 @@ export interface User {
   name: string
   username: string
   role: 'admin' | 'staff'
+  permissions?: string[]
   is_active: boolean
   is_deleted?: boolean
   deleted_at?: string | null
@@ -17,12 +18,14 @@ export interface CreateUserPayload {
   username: string
   password: string
   role: 'admin' | 'staff'
+  permissions?: string[]
 }
 
 export interface UpdateUserPayload {
   name?: string
   is_active?: boolean
   is_deleted?: boolean
+  permissions?: string[]
 }
 
 export const usersApi = {

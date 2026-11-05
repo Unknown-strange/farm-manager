@@ -51,6 +51,8 @@ def _ensure_borrowed_columns() -> None:
                     conn.execute(text("ALTER TABLE users ADD COLUMN deleted_at TIMESTAMP WITH TIME ZONE"))
                 if "deleted_by" not in u_cols:
                     conn.execute(text("ALTER TABLE users ADD COLUMN deleted_by BIGINT"))
+                if "permissions" not in u_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN permissions TEXT"))
         if "settings" in table_names:
             s_cols = {c["name"] for c in insp.get_columns("settings")}
             with engine.begin() as conn:
@@ -58,6 +60,15 @@ def _ensure_borrowed_columns() -> None:
                     conn.execute(text("ALTER TABLE settings ADD COLUMN beginning_eggs INTEGER NOT NULL DEFAULT 0"))
                 if "beginning_money" not in s_cols:
                     conn.execute(text("ALTER TABLE settings ADD COLUMN beginning_money NUMERIC(12, 2) NOT NULL DEFAULT 0.00"))
+        if "daily_closings" in table_names:
+            dc_cols = {c["name"] for c in insp.get_columns("daily_closings")}
+            with engine.begin() as conn:
+                if "actual_revenue" not in dc_cols:
+                    conn.execute(text("ALTER TABLE daily_closings ADD COLUMN actual_revenue NUMERIC(12, 2)"))
+                if "actual_expenses" not in dc_cols:
+                    conn.execute(text("ALTER TABLE daily_closings ADD COLUMN actual_expenses NUMERIC(12, 2)"))
+                if "actual_sold_eggs" not in dc_cols:
+                    conn.execute(text("ALTER TABLE daily_closings ADD COLUMN actual_sold_eggs INTEGER"))
     except Exception:
         pass
 

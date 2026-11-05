@@ -152,6 +152,9 @@ export function History() {
                         Date
                       </th>
                       <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">
+                        Logged By
+                      </th>
+                      <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">
                         Opening
                       </th>
                       <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted">
@@ -185,7 +188,30 @@ export function History() {
                         className="hover:bg-canvas/70 transition-colors cursor-pointer"
                       >
                         <td className="py-3.5 px-4 font-semibold text-brand whitespace-nowrap">
-                          {formatDate(row.business_date)}
+                          <div className="flex items-center gap-1.5">
+                            <span>{formatDate(row.business_date)}</span>
+                            {row.reconciled && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-success-bg text-success border border-success-border">
+                                Reconciled
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {row.logged_by && row.logged_by.length > 0 ? (
+                            <div className="flex flex-wrap items-center gap-1.5 max-w-[220px]">
+                              {row.logged_by.map((name) => (
+                                <span
+                                  key={name}
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-canvas border border-border text-ink whitespace-nowrap shadow-xs"
+                                >
+                                  {name}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted text-xs">—</span>
+                          )}
                         </td>
                         <td className="py-3.5 px-4 text-ink tabular-nums whitespace-nowrap">
                           {formatEggs(row.opening, perCrate)}

@@ -1,5 +1,5 @@
-import { AlertTriangle } from 'lucide-react'
-import { Loader2 } from 'lucide-react'
+import type React from 'react'
+import { AlertTriangle, Loader2 } from 'lucide-react'
 import { Modal } from './Modal'
 
 interface ConfirmDialogProps {
@@ -7,7 +7,7 @@ interface ConfirmDialogProps {
   onClose: () => void
   onConfirm: () => void | Promise<void>
   title: string
-  message: string
+  message: React.ReactNode
   confirmLabel?: string
   isLoading?: boolean
 }
@@ -22,10 +22,10 @@ export function ConfirmDialog({
   isLoading,
 }: ConfirmDialogProps) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} maxWidth="max-w-sm">
+    <Modal isOpen={isOpen} onClose={onClose} title={title} maxWidth="max-w-md">
       <div className="flex gap-3 mb-5">
         <AlertTriangle size={20} className="text-warn flex-shrink-0 mt-0.5" />
-        <p className="text-body-default text-ink">{message}</p>
+        <div className="text-body-default text-ink flex-1">{message}</div>
       </div>
       <div className="flex justify-end gap-3">
         <button onClick={onClose} className="btn-outline" disabled={isLoading}>

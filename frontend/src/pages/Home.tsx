@@ -36,6 +36,8 @@ export function Home() {
   const queryClient = useQueryClient()
   const canEditOwn = useCan('events:edit_own')
   const canVoidOwn = useCan('events:void_own')
+  const canCreateEvents = useCan('events:create')
+  const canCreateExpenses = useCan('expenses:create')
 
   const [editingEvent, setEditingEvent] = useState<EggEvent | null>(null)
   const [editEggs, setEditEggs] = useState(0)
@@ -120,7 +122,7 @@ export function Home() {
     })
   }
 
-  const actionCards = [
+  const allActionCards = [
     {
       to: '/sale',
       title: 'Record Sale',
@@ -129,6 +131,7 @@ export function Home() {
       icon: ShoppingBag,
       tint: 'bg-success-bg text-success',
       ctaColor: 'text-brand',
+      permission: canCreateEvents,
     },
     {
       to: '/received',
@@ -138,6 +141,7 @@ export function Home() {
       icon: PackagePlus,
       tint: 'bg-intake-bg text-intake',
       ctaColor: 'text-intake',
+      permission: canCreateEvents,
     },
     {
       to: '/cracked',
@@ -147,6 +151,7 @@ export function Home() {
       icon: AlertOctagon,
       tint: 'bg-danger-bg text-danger',
       ctaColor: 'text-danger',
+      permission: canCreateEvents,
     },
     {
       to: '/expense',
@@ -156,8 +161,10 @@ export function Home() {
       icon: Receipt,
       tint: 'bg-brand-tint text-brand',
       ctaColor: 'text-ink',
+      permission: canCreateExpenses,
     },
   ]
+  const actionCards = allActionCards.filter((c) => c.permission)
 
   return (
     <>
@@ -177,42 +184,56 @@ export function Home() {
             <div className="mb-4">
               <h2 className="text-title-section text-ink">Quick Actions</h2>
               <p className="text-body-default text-muted">
-                Select an operation to record to today&apos;s farm ledger
+                {actionCards.length > 0
+                  ? 'Select an operation to record to today\'s farm ledger'
+                  : 'Your account access rights'}
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-              {actionCards.map((item) => {
-                const Icon = item.icon
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className="group card p-6 hover:border-brand transition-all flex flex-col justify-between min-h-[168px]"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div
-                        className={`w-11 h-11 rounded-md ${item.tint} flex items-center justify-center`}
-                      >
-                        <Icon size={22} />
+            {actionCards.length === 0 ? (
+              <div className="card p-6 bg-brand-tint/20 border border-brand/40 flex items-start gap-3.5">
+                <Info size={22} className="text-brand flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-base font-semibold text-ink">View-Only Access</h3>
+                  <p className="text-xs text-muted mt-1 leading-relaxed">
+                    Your account is configured with view-only permissions. You can view daily egg sales, shift totals, and entries below without recording transactions.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+                {actionCards.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      className="group card p-6 hover:border-brand transition-all flex flex-col justify-between min-h-[168px]"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div
+                          className={`w-11 h-11 rounded-md ${item.tint} flex items-center justify-center`}
+                        >
+                          <Icon size={22} />
+                        </div>
+                        <ArrowRight
+                          size={18}
+                          className="text-muted group-hover:text-brand group-hover:translate-x-0.5 transition-all"
+                        />
                       </div>
-                      <ArrowRight
-                        size={18}
-                        className="text-muted group-hover:text-brand group-hover:translate-x-0.5 transition-all"
-                      />
-                    </div>
-                    <div className="mt-4">
-                      <h3 className="text-base font-semibold text-ink mb-1">{item.title}</h3>
-                      <p className="text-xs text-muted leading-relaxed">{item.desc}</p>
-                    </div>
-                    <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
-                      <span className={`text-xs font-semibold ${item.ctaColor}`}>{item.cta}</span>
-                      <span className="text-xs text-muted">→</span>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
+                      <div className="mt-4">
+                        <h3 className="text-base font-semibold text-ink mb-1">{item.title}</h3>
+                        <p className="text-xs text-muted leading-relaxed">{item.desc}</p>
+                      </div>
+                      <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+                        <span className={`text-xs font-semibold ${item.ctaColor}`}>{item.cta}</span>
+                        <span className="text-xs text-muted">→</span>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
           </section>
 
           {/* Shift Summary (2 Cards) */}

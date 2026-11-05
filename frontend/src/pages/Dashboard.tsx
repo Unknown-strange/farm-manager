@@ -212,9 +212,9 @@ export function Dashboard() {
                       </p>
                     </div>
                     {book.locked ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-success-bg text-success">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-success-bg text-success border border-success-border">
                         <Lock size={12} />
-                        Day Locked
+                        {book.reconciled ? 'Reconciled & Locked' : 'Day Locked'}
                       </span>
                     ) : (
                       <span className="badge-neutral">Open Shift</span>
@@ -228,7 +228,14 @@ export function Dashboard() {
                     </div>
 
                     <div className="px-6 py-3.5 flex items-center justify-between text-body-default">
-                      <span className="text-ink">Remaining from previous day (Opening)</span>
+                      <div>
+                        <span className="text-ink">Remaining from previous day (Opening)</span>
+                        {book.opening_anchor_date && (
+                          <span className="block text-xs font-normal text-muted mt-0.5">
+                            Anchored from locked count on {formatDate(book.opening_anchor_date)}
+                          </span>
+                        )}
+                      </div>
                       <span className="font-semibold text-ink tabular-nums">
                         {formatEggs(book.opening, perCrate)}{' '}
                         <span className="text-xs text-muted font-normal">({book.opening} eggs)</span>
@@ -260,7 +267,14 @@ export function Dashboard() {
                     </div>
 
                     <div className="px-6 py-4 flex items-center justify-between bg-canvas/40 font-semibold">
-                      <span className="text-ink">(=) Remaining after today (Closing Stock)</span>
+                      <div>
+                        <span className="text-ink">(=) Remaining after today (Closing Stock)</span>
+                        {book.reconciled && book.counted_eggs != null && (
+                          <span className="block text-xs font-normal text-brand mt-0.5">
+                            ★ Reconciled physical storeroom count ({book.counted_eggs} eggs)
+                          </span>
+                        )}
+                      </div>
                       <span className="text-ink tabular-nums">
                         {formatEggs(book.closing, perCrate)} ({book.closing} eggs)
                       </span>
@@ -391,17 +405,22 @@ export function Dashboard() {
                     </div>
                     <p className="text-xs text-muted leading-relaxed">
                       {book.locked
-                        ? `This day has been closed and locked with a physical count of ${formatEggs(
-                          book.counted_eggs ?? book.closing,
-                          perCrate,
-                        )}.`
-                        : 'Verify physical trays in the storeroom at the end of the shift and lock the day.'}
+                        ? book.reconciled
+                          ? `This day is locked with reconciled actuals: ${formatEggs(
+                              book.closing,
+                              perCrate,
+                            )} closing stock and ${formatMoney(Number(book.revenue))} actual cash.`
+                          : `This day has been closed and locked with a physical count of ${formatEggs(
+                              book.counted_eggs ?? book.closing,
+                              perCrate,
+                            )}.`
+                        : 'Verify physical trays in the storeroom and cash collected at the end of the shift, then reconcile and lock.'}
                     </p>
                     <Link
                       to={`/end-of-day?date=${selectedDate}`}
                       className="btn-outline w-full justify-center text-xs"
                     >
-                      {book.locked ? 'View Reconciliation' : 'Go to End of Day Count'}
+                      {book.locked ? 'View / Re-adjust Reconciliation' : 'Go to Reconcile & Close'}
                     </Link>
                   </div>
                 </div>

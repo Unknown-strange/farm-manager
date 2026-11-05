@@ -13,6 +13,7 @@ from app.security import (
     verify_password,
     create_access_token,
     get_current_user,
+    get_user_permissions,
 )
 from app.services.audit import record_audit
 
@@ -55,8 +56,8 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=MeResponse)
 def get_me(current_user: User = Depends(get_current_user)):
     """Returns the authenticated user profile along with granted permissions."""
-    role_perms = settings.role_permissions.get(current_user.role, set())
-    permissions_list = sorted(list(role_perms))
+    perms = get_user_permissions(current_user)
+    permissions_list = sorted(list(perms))
 
     return MeResponse(
         id=current_user.id,

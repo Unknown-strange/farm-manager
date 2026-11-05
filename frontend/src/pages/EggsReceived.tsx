@@ -38,7 +38,7 @@ export function EggsReceived() {
         idempotencyKey,
       ),
     onSuccess: () => {
-      toast('Eggs received saved', 'success')
+      toast(`Eggs received saved: ${formatEggs(eggs, perCrate)}`, 'success')
       setEggs(0)
       setNote('')
       setError(undefined)

@@ -38,7 +38,7 @@ export function CrackedEggs() {
         idempotencyKey,
       ),
     onSuccess: () => {
-      toast('Cracked eggs logged', 'success')
+      toast(`Cracked eggs logged: ${formatEggs(eggs, perCrate)}`, 'success')
       setEggs(0)
       setNote('')
       setError(undefined)

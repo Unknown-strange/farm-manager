@@ -58,6 +58,16 @@ test('Egg conversion: supports custom crate sizes from settings (e.g. 24/crate)'
   assert.equal(formatEggs(54, 24), '2 crates + 6 eggs')
 })
 
+test('Egg conversion: stock flow 32 opening + 16 received - 5 sold = 43 crates', () => {
+  const opening = toEggs(32, 0, 30) // 960
+  const received = toEggs(16, 0, 30) // 480
+  const sold = toEggs(5, 0, 30) // 150
+  const remaining = opening + received - sold // 1290
+  assert.equal(remaining, 1290)
+  assert.deepEqual(fromEggs(remaining, 30), { crates: 43, eggs: 0 })
+  assert.equal(formatEggs(remaining, 30), '43 crates + 0 eggs')
+})
+
 // 2. Money Formatting & Parsing Tests
 const formatMoney = (amount) =>
   `GH₵ ${amount.toLocaleString('en-GH', {
@@ -226,6 +236,37 @@ test('Entries daily totals and Summary period filters + Borrowed settlement wiri
   assert.ok(beginningSrc.includes('Log Borrowed (Yet to Be Paid)'), 'ManualEntry must allow logging borrowed eggs & money')
   assert.ok(beginningSrc.includes('Mark as Paid'), 'ManualEntry must allow changing borrowed status to Paid')
   assert.ok(sidebarSrc.includes("label: 'Manual Entry'"), 'Sidebar must include Manual Entry tab for Admin')
+
+  const historySrc = fs.readFileSync(path.join(srcDir, 'pages/History.tsx'), 'utf8')
+  assert.ok(historySrc.includes('Logged By'), 'History page must include Logged By column in Daily Ledger History')
+  assert.ok(historySrc.includes('row.logged_by'), 'History page must render staff names who logged entries')
+
+  assert.ok(usersSrc.includes('PermissionSelector'), 'Users page must include PermissionSelector')
+  assert.ok(usersSrc.includes('Quick Access Presets'), 'Users page must provide quick access presets for staff permissions')
+  assert.ok(usersSrc.includes('Edit Staff Permissions'), 'Users page must allow editing staff permissions')
+  assert.ok(usersSrc.includes('View-Only (No Entries)'), 'Users page must offer View-Only preset')
+
+  const requirePermSrc = fs.readFileSync(path.join(srcDir, 'auth/RequirePermission.tsx'), 'utf8')
+  assert.ok(requirePermSrc.includes('some'), 'RequirePermission must support comma-separated multi-permission OR checks')
+
+  // End of Day reconciliation actuals and unlock mechanism
+  const endOfDaySrc = fs.readFileSync(path.join(srcDir, 'pages/EndOfDay.tsx'), 'utf8')
+  assert.ok(endOfDaySrc.includes('1. Physical Eggs in Storeroom'), 'EndOfDay must have physical storeroom count field')
+  assert.ok(endOfDaySrc.includes('2. Actual Cash Gotten (Revenue)'), 'EndOfDay must have actual cash gotten field')
+  assert.ok(endOfDaySrc.includes('3. Actual Expenses Made'), 'EndOfDay must have actual expenses made field')
+  assert.ok(endOfDaySrc.includes('4. Actual Eggs Sold Today'), 'EndOfDay must have actual eggs sold field')
+  assert.ok(endOfDaySrc.includes('Lock Day with Actuals'), 'EndOfDay must allow locking with actuals')
+  assert.ok(endOfDaySrc.includes('Re-adjust / Unlock Day'), 'EndOfDay must allow unlocking day for re-adjustments')
+
+  const closingsApiSrc = fs.readFileSync(path.join(srcDir, 'api/closings.ts'), 'utf8')
+  assert.ok(closingsApiSrc.includes('unlockDay'), 'closingsApi must provide unlockDay endpoint')
+  assert.ok(closingsApiSrc.includes('actual_revenue'), 'closingsApi must support actual_revenue')
+  assert.ok(closingsApiSrc.includes('actual_expenses'), 'closingsApi must support actual_expenses')
+  assert.ok(closingsApiSrc.includes('actual_sold_eggs'), 'closingsApi must support actual_sold_eggs')
+
+  const dashboardSrc = fs.readFileSync(path.join(srcDir, 'pages/Dashboard.tsx'), 'utf8')
+  assert.ok(dashboardSrc.includes('Reconciled & Locked'), 'Dashboard must display Reconciled & Locked badge')
+  assert.ok(historySrc.includes('Reconciled'), 'History page must display Reconciled badge on reconciled days')
 })
 
 console.log(`\n✅ All ${passed} frontend system instance checks passed!`)

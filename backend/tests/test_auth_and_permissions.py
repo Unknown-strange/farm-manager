@@ -120,3 +120,97 @@ def test_health_check_endpoints(client):
         assert "timestamp" in data
 
 
+def test_granular_staff_permissions_and_daily_ledger_attribution(client, admin_headers):
+    # 1. Admin creates a view-only staff member
+    auditor_res = client.post(
+        "/users",
+        json={
+            "name": "Kofi Auditor",
+            "username": "kofi_auditor",
+            "password": "auditorpass",
+            "role": "staff",
+            "permissions": ["events:read_all", "expenses:read", "summary:read_all", "reports:read"],
+        },
+        headers=admin_headers,
+    )
+    assert auditor_res.status_code == 201
+    auditor_data = auditor_res.json()
+    assert auditor_data["username"] == "kofi_auditor"
+    assert "events:read_all" in auditor_data["permissions"]
+    assert "events:create" not in auditor_data["permissions"]
+    auditor_id = auditor_data["id"]
+
+    # 2. Login as Kofi Auditor
+    login_res = client.post("/auth/login", json={"username": "kofi_auditor", "password": "auditorpass"})
+    assert login_res.status_code == 200
+    auditor_token = login_res.json()["access_token"]
+    auditor_headers = {"Authorization": f"Bearer {auditor_token}"}
+
+    # Verify /auth/me returns Kofi's granted permissions
+    me_res = client.get("/auth/me", headers=auditor_headers)
+    assert me_res.status_code == 200
+    assert "events:read_all" in me_res.json()["permissions"]
+    assert "events:create" not in me_res.json()["permissions"]
+
+    # View-only can read reports and expenses
+    assert client.get("/reports", headers=auditor_headers).status_code == 200
+    assert client.get("/expenses", headers=auditor_headers).status_code == 200
+
+    # View-only CANNOT create entries or expenses (403 Forbidden)
+    post_event = client.post("/events", json={"type": "sold", "crates": 1, "price_per_crate": "40.00"}, headers=auditor_headers)
+    assert post_event.status_code == 403
+    post_exp = client.post("/expenses", json={"category": "feed", "name": "Feed", "amount": 50.00}, headers=auditor_headers)
+    assert post_exp.status_code == 403
+
+    # 3. Create a staff member with sales permissions and record entries
+    worker_res = client.post(
+        "/users",
+        json={
+            "name": "Esi Seller",
+            "username": "esi_seller",
+            "password": "sellerpass",
+            "role": "staff",
+            "permissions": ["events:create", "events:read_own", "summary:read_own"],
+        },
+        headers=admin_headers,
+    )
+    assert worker_res.status_code == 201
+    worker_token = client.post("/auth/login", json={"username": "esi_seller", "password": "sellerpass"}).json()["access_token"]
+    worker_headers = {"Authorization": f"Bearer {worker_token}"}
+
+    # First receive eggs as admin so stock exists
+    client.post("/events", json={"type": "received", "eggs": 60}, headers=admin_headers)
+
+    # Esi records a sale
+    sale_res = client.post("/events", json={"type": "sold", "crates": 1, "price_per_crate": "42.00"}, headers=worker_headers)
+    assert sale_res.status_code == 201
+
+    # 4. Check Daily Ledger Reports attribution: 'Esi Seller' must be listed in logged_by
+    report_res = client.get("/reports", headers=admin_headers)
+    assert report_res.status_code == 200
+    report_rows = report_res.json()
+    assert len(report_rows) > 0
+    today_row = report_rows[-1]
+    assert "Esi Seller" in today_row["logged_by"]
+
+    # Also check CSV export
+    csv_res = client.get("/reports/export", headers=admin_headers)
+    assert csv_res.status_code == 200
+    assert "Logged By Staff" in csv_res.text
+    assert "Esi Seller" in csv_res.text
+
+    # 5. Admin grants events:create to Kofi Auditor via update_user
+    patch_res = client.patch(
+        f"/users/{auditor_id}",
+        json={"permissions": ["events:read_all", "expenses:read", "summary:read_all", "reports:read", "events:create"]},
+        headers=admin_headers,
+    )
+    assert patch_res.status_code == 200
+    assert "events:create" in patch_res.json()["permissions"]
+
+    # Now Kofi can create an event!
+    post_event_ok = client.post("/events", json={"type": "received", "eggs": 30}, headers=auditor_headers)
+    assert post_event_ok.status_code == 201
+
+
+

@@ -172,6 +172,9 @@ class ExpenseResponse(BaseModel):
 class CloseDayRequest(BaseModel):
     counted_eggs: int = Field(..., ge=0)
     opening_override: Optional[int] = None
+    actual_revenue: Optional[Decimal] = None
+    actual_expenses: Optional[Decimal] = None
+    actual_sold_eggs: Optional[int] = Field(None, ge=0)
 
 
 class ClosingResponse(BaseModel):
@@ -180,6 +183,12 @@ class ClosingResponse(BaseModel):
     closing_eggs: Optional[int] = None
     counted_eggs: Optional[int] = None
     difference_eggs: Optional[int] = None
+    actual_revenue: Optional[Decimal] = None
+    actual_expenses: Optional[Decimal] = None
+    actual_sold_eggs: Optional[int] = None
+    recorded_revenue: Optional[Decimal] = None
+    recorded_expenses: Optional[Decimal] = None
+    recorded_sold_eggs: Optional[int] = None
     locked: bool
     closed_by: Optional[int] = None
     closed_at: Optional[datetime] = None
@@ -215,8 +224,19 @@ class DailyBookResponse(BaseModel):
     projected_net_margin: Decimal = Decimal("0.00")
     locked: bool
     counted_eggs: Optional[int] = None
+    actual_revenue: Optional[Decimal] = None
+    actual_expenses: Optional[Decimal] = None
+    actual_sold_eggs: Optional[int] = None
+    recorded_revenue: Optional[Decimal] = None
+    recorded_expenses: Optional[Decimal] = None
+    recorded_sold: Optional[int] = None
+    computed_closing: Optional[int] = None
+    reconciled: bool = False
     closed_at: Optional[datetime] = None
     by_worker: List[WorkerSalesSummary]
+    logged_by: List[str] = Field(default_factory=list)
+    opening_anchor_date: Optional[date] = None
+    opening_anchor_eggs: Optional[int] = None
 
 
 class PeriodSummaryResponse(BaseModel):
@@ -255,12 +275,14 @@ class UserCreate(BaseModel):
     username: str = Field(..., min_length=1)
     password: str = Field(..., min_length=4)
     role: str = Field(..., pattern="^(admin|staff)$")
+    permissions: Optional[List[str]] = None
 
 
 class UserUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1)
     is_active: Optional[bool] = None
     is_deleted: Optional[bool] = None
+    permissions: Optional[List[str]] = None
 
 
 class PasswordResetRequest(BaseModel):
@@ -272,6 +294,7 @@ class UserResponse(BaseModel):
     name: str
     username: str
     role: str
+    permissions: List[str] = Field(default_factory=list)
     is_active: bool
     is_deleted: bool = False
     deleted_at: Optional[datetime] = None
@@ -279,6 +302,45 @@ class UserResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_permissions(cls, data: Any):
+        if hasattr(data, "role"):
+            role = getattr(data, "role", "staff")
+            raw_perms = getattr(data, "permissions", None)
+            if isinstance(raw_perms, str):
+                perms = [p.strip() for p in raw_perms.split(",") if p.strip()]
+            elif isinstance(raw_perms, list):
+                perms = raw_perms
+            elif role == "admin":
+                perms = ["*"]
+            else:
+                perms = [
+                    "events:create",
+                    "events:read_own",
+                    "events:edit_own",
+                    "events:void_own",
+                    "expenses:create",
+                    "expenses:undo_own",
+                    "summary:read_own",
+                ]
+            if isinstance(data, dict):
+                data["permissions"] = perms
+                return data
+            return {
+                "id": data.id,
+                "name": data.name,
+                "username": data.username,
+                "role": data.role,
+                "permissions": perms,
+                "is_active": data.is_active,
+                "is_deleted": getattr(data, "is_deleted", False),
+                "deleted_at": getattr(data, "deleted_at", None),
+                "deleted_by": getattr(data, "deleted_by", None),
+                "created_at": getattr(data, "created_at", None),
+            }
+        return data
 
 
 # --- Settings Schemas ---
@@ -317,4 +379,6 @@ class ReportRow(BaseModel):
     total_expenses: Decimal
     net_margin: Decimal
     projected_net_margin: Decimal = Decimal("0.00")
+    logged_by: List[str] = Field(default_factory=list)
+    reconciled: bool = False
 

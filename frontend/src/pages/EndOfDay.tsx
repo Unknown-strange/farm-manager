@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Lock,
+  Unlock,
   CheckCircle2,
   AlertTriangle,
   XCircle,
@@ -14,6 +15,7 @@ import {
   Package,
   Calendar,
   Check,
+  Sliders,
 } from 'lucide-react'
 import { TopBar } from '@/components/layout/TopBar'
 import { DatePicker } from '@/components/DatePicker'
@@ -41,8 +43,22 @@ export function EndOfDay() {
   const [customTo, setCustomTo] = useState<string>(today)
   const [borrowedTab, setBorrowedTab] = useState<'unpaid' | 'paid' | 'all'>('unpaid')
 
+  // Reconciliation actual inputs
   const [countedEggsOverride, setCountedEggsOverride] = useState<number | null>(null)
+  const [actualRevenueInput, setActualRevenueInput] = useState<string>('')
+  const [actualExpensesInput, setActualExpensesInput] = useState<string>('')
+  const [actualSoldEggsOverride, setActualSoldEggsOverride] = useState<number | null>(null)
+
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false)
+
+  // Reset local override inputs on date change
+  useEffect(() => {
+    setCountedEggsOverride(null)
+    setActualRevenueInput('')
+    setActualExpensesInput('')
+    setActualSoldEggsOverride(null)
+  }, [selectedDate])
 
   const { data: settings } = useQuery({
     queryKey: ['settings'],
@@ -66,6 +82,11 @@ export function EndOfDay() {
     queryFn: () => closingsApi.getClosing(selectedDate),
   })
 
+  const { data: dailyBook } = useQuery({
+    queryKey: ['daily-book', selectedDate],
+    queryFn: () => summaryApi.getDailyBook(selectedDate),
+  })
+
   const markPaidMutation = useMutation({
     mutationFn: (eventId: number) => eventsApi.markPaid(eventId),
     onSuccess: (updated) => {
@@ -86,21 +107,47 @@ export function EndOfDay() {
     },
   })
 
-  const countedEggs =
-    countedEggsOverride ?? closing?.counted_eggs ?? closing?.closing_eggs ?? 0
+  // Recorded values from system entries
+  const recordedClosing = closing?.closing_eggs ?? dailyBook?.computed_closing ?? dailyBook?.closing ?? 0
+  const recordedRevenue = Number(closing?.recorded_revenue ?? dailyBook?.recorded_revenue ?? dailyBook?.revenue ?? 0)
+  const recordedExpenses = Number(closing?.recorded_expenses ?? dailyBook?.recorded_expenses ?? dailyBook?.total_expenses ?? 0)
+  const recordedSold = closing?.recorded_sold_eggs ?? dailyBook?.recorded_sold ?? dailyBook?.sold ?? 0
+
+  // Effective actual values with manual overrides
+  const countedEggs = countedEggsOverride ?? closing?.counted_eggs ?? recordedClosing
+  const actualRevenue = actualRevenueInput !== ''
+    ? Number(actualRevenueInput)
+    : (closing?.actual_revenue != null ? Number(closing.actual_revenue) : recordedRevenue)
+  const actualExpenses = actualExpensesInput !== ''
+    ? Number(actualExpensesInput)
+    : (closing?.actual_expenses != null ? Number(closing.actual_expenses) : recordedExpenses)
+  const actualSoldEggs = actualSoldEggsOverride ?? closing?.actual_sold_eggs ?? recordedSold
+
+  const diffEggs = countedEggs - recordedClosing
+  const diffRevenue = Number((actualRevenue - recordedRevenue).toFixed(2))
+  const diffExpenses = Number((actualExpenses - recordedExpenses).toFixed(2))
+  const diffSold = actualSoldEggs - recordedSold
 
   const closeMutation = useMutation({
     mutationFn: () =>
       closingsApi.closeDay(selectedDate, {
         counted_eggs: countedEggs,
+        actual_revenue: actualRevenue,
+        actual_expenses: actualExpenses,
+        actual_sold_eggs: actualSoldEggs,
       }),
     onSuccess: () => {
-      toast('Day closed and locked', 'success')
+      toast('Day closed and locked with actual figures', 'success')
       setConfirmOpen(false)
       setCountedEggsOverride(null)
+      setActualRevenueInput('')
+      setActualExpensesInput('')
+      setActualSoldEggsOverride(null)
       queryClient.invalidateQueries({ queryKey: ['closing', selectedDate] })
+      queryClient.invalidateQueries({ queryKey: ['daily-book', selectedDate] })
       queryClient.invalidateQueries({ queryKey: ['summary'] })
       queryClient.invalidateQueries({ queryKey: ['period-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['reports'] })
     },
     onError: (err: unknown) => {
       const msg =
@@ -111,19 +158,48 @@ export function EndOfDay() {
     },
   })
 
-  const computedClosing = closing?.closing_eggs ?? 0
-  const diff = countedEggs - computedClosing
+  const unlockMutation = useMutation({
+    mutationFn: () => closingsApi.unlockDay(selectedDate),
+    onSuccess: () => {
+      toast('Day unlocked. You can now re-adjust numbers or entries.', 'success')
+      setUnlockConfirmOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['closing', selectedDate] })
+      queryClient.invalidateQueries({ queryKey: ['daily-book', selectedDate] })
+      queryClient.invalidateQueries({ queryKey: ['summary'] })
+      queryClient.invalidateQueries({ queryKey: ['period-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['reports'] })
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        'Failed to unlock day'
+      toast(msg, 'error')
+      setUnlockConfirmOpen(false)
+    },
+  })
+
+  const allBorrowedSales = periodSummary?.borrowed_sales ?? []
+  const unpaidBorrowedSales = allBorrowedSales.filter((e) => !e.paid)
+  const unpaidListSum = unpaidBorrowedSales.reduce(
+    (sum, ev) => sum + Number(ev.amount ?? 0),
+    0,
+  )
 
   const cashRevenue = Number(periodSummary?.cash_revenue ?? 0)
-  const borrowedUnpaid = Number(periodSummary?.borrowed_unpaid_amount ?? 0)
-  const totalSalesAmount = Number(periodSummary?.total_sales_amount ?? 0)
+  const borrowedUnpaid = Math.max(
+    Number(periodSummary?.borrowed_unpaid_amount ?? 0),
+    Number(unpaidListSum.toFixed(2)),
+  )
+  const totalSalesAmount = Math.max(
+    Number(periodSummary?.total_sales_amount ?? 0),
+    Number((cashRevenue + borrowedUnpaid).toFixed(2)),
+  )
   const feedExpenses = Number(periodSummary?.feed_expenses ?? 0)
   const otherExpenses = Number(periodSummary?.other_expenses ?? 0)
   const totalExpenses = Number(periodSummary?.total_expenses ?? 0)
   const moneyLeftPresent = Number(periodSummary?.money_left_present ?? 0)
-  const moneyLeftWithBorrowed = Number(periodSummary?.money_left_with_borrowed ?? 0)
+  const moneyLeftWithBorrowed = Number((moneyLeftPresent + borrowedUnpaid).toFixed(2))
 
-  const allBorrowedSales = periodSummary?.borrowed_sales ?? []
   const filteredBorrowedSales = allBorrowedSales.filter((ev) => {
     if (borrowedTab === 'unpaid') return !ev.paid
     if (borrowedTab === 'paid') return !!ev.paid
@@ -135,6 +211,7 @@ export function EndOfDay() {
     { label: 'Week', value: 'week' },
     { label: 'Month', value: 'month' },
     { label: 'Year', value: 'year' },
+    { label: 'All Time', value: 'all' },
     { label: 'Custom', value: 'custom' },
   ]
 
@@ -256,7 +333,7 @@ export function EndOfDay() {
                     </div>
                   </div>
                   <div className="mt-4 pt-3 border-t border-border text-xs text-muted flex items-center justify-between">
-                    <span>All Sales ({formatMoney(totalSalesAmount)}) − Expenses ({formatMoney(totalExpenses)})</span>
+                    <span>Present ({formatMoney(moneyLeftPresent)}) + Borrowed Owed ({formatMoney(borrowedUnpaid)})</span>
                     <span className="font-semibold text-brand">Projected Total</span>
                   </div>
                 </div>
@@ -568,111 +645,263 @@ export function EndOfDay() {
             </>
           )}
 
-          {/* ==================== 5. DAILY STOCK RECONCILIATION & LOCK ==================== */}
+          {/* ==================== 5. DAILY RECONCILIATION & LOCK ==================== */}
           {!isClosingLoading && closing && (
             <div className="card overflow-hidden">
-              <div className="px-6 py-5 border-b border-border flex items-center justify-between bg-canvas/40">
+              <div className="px-6 py-5 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-canvas/40">
                 <div>
-                  <h2 className="text-title-section text-ink">
+                  <h2 className="text-title-section text-ink flex items-center gap-2">
+                    <Sliders size={18} className="text-brand" />
                     Reconcile &amp; Close Day · {formatDate(selectedDate)}
                   </h2>
-                  <p className="text-helper-xs text-muted">
-                    Compare computed closing stock against the physical egg count in the storeroom
+                  <p className="text-helper-xs text-muted mt-0.5">
+                    Enter physical storeroom counts and actual financial figures. Locking updates the real system values for this day and anchors stock forward.
                   </p>
                 </div>
                 {closing.locked ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-success-bg text-success">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-success-bg text-success border border-success-border self-start sm:self-auto">
                     <Lock size={12} />
-                    Locked
+                    Locked &amp; Reconciled
                   </span>
                 ) : (
-                  <span className="badge-neutral">Open</span>
+                  <span className="badge-neutral self-start sm:self-auto">Open for Reconciliation</span>
                 )}
               </div>
 
               <div className="p-6 space-y-6">
-                <div className="p-4 rounded-md bg-canvas border border-border flex items-center justify-between">
-                  <div>
-                    <span className="block text-xs font-semibold uppercase tracking-wider text-muted">
-                      Computed Closing Stock ({formatDate(selectedDate)})
-                    </span>
-                    <span className="text-helper-xs text-muted">
-                      Opening + Gotten − Cracked − Sold
-                    </span>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Field 1: Physical Storeroom Closing Stock */}
+                  <div className="p-5 rounded-lg border border-border bg-canvas/30 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
+                          <Package size={15} className="text-brand" />
+                          1. Physical Eggs in Storeroom
+                        </span>
+                        <p className="text-helper-xs text-muted mt-0.5">
+                          Recorded closing stock: <strong className="text-ink">{formatEggs(recordedClosing, perCrate)}</strong> ({recordedClosing} eggs)
+                        </p>
+                      </div>
+                      <span className="text-xs font-mono text-muted bg-canvas px-2 py-0.5 rounded border border-border">
+                        Storeroom Count
+                      </span>
+                    </div>
+
+                    <EggQuantityInput
+                      value={countedEggs}
+                      onChange={setCountedEggsOverride}
+                      perCrate={perCrate}
+                      disabled={closing.locked}
+                    />
+
+                    {diffEggs === 0 ? (
+                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success">
+                        <CheckCircle2 size={15} className="flex-shrink-0" />
+                        <span>Matches recorded system stock ({recordedClosing} eggs).</span>
+                      </div>
+                    ) : diffEggs < 0 ? (
+                      <div className="p-2.5 rounded bg-danger-bg border border-danger/30 flex items-center gap-2 text-xs text-danger font-medium">
+                        <XCircle size={15} className="flex-shrink-0" />
+                        <span>Short by {formatEggs(Math.abs(diffEggs), perCrate)} ({Math.abs(diffEggs)} eggs vs recorded)</span>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded bg-warn-bg border border-warn/30 flex items-center gap-2 text-xs text-warn font-medium">
+                        <AlertTriangle size={15} className="flex-shrink-0" />
+                        <span>Over by +{formatEggs(diffEggs, perCrate)} (+{diffEggs} eggs vs recorded)</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-right">
-                    <span className="block text-lg font-bold text-ink tabular-nums">
-                      {formatEggs(computedClosing, perCrate)}
-                    </span>
-                    <span className="text-xs text-muted tabular-nums">
-                      = {computedClosing} total eggs
-                    </span>
+
+                  {/* Field 2: Actual Total Cash Gotten */}
+                  <div className="p-5 rounded-lg border border-border bg-canvas/30 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
+                          <Banknote size={15} className="text-success" />
+                          2. Actual Cash Gotten (Revenue)
+                        </span>
+                        <p className="text-helper-xs text-muted mt-0.5">
+                          Recorded cash revenue: <strong className="text-ink">{formatMoney(recordedRevenue)}</strong>
+                        </p>
+                      </div>
+                      <span className="text-xs font-mono text-muted bg-canvas px-2 py-0.5 rounded border border-border">
+                        Cash Till
+                      </span>
+                    </div>
+
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">
+                        GH₵
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        disabled={closing.locked}
+                        value={
+                          actualRevenueInput !== ''
+                            ? actualRevenueInput
+                            : closing.locked
+                            ? (closing.actual_revenue != null ? String(closing.actual_revenue) : String(recordedRevenue))
+                            : (closing?.actual_revenue != null ? String(closing.actual_revenue) : (actualRevenueInput !== '' ? actualRevenueInput : ''))
+                        }
+                        onChange={(e) => setActualRevenueInput(e.target.value)}
+                        placeholder={String(recordedRevenue)}
+                        className="input-field pl-12 font-bold tabular-nums w-full"
+                      />
+                    </div>
+
+                    {diffRevenue === 0 ? (
+                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success">
+                        <CheckCircle2 size={15} className="flex-shrink-0" />
+                        <span>Matches recorded cash revenue ({formatMoney(recordedRevenue)}).</span>
+                      </div>
+                    ) : diffRevenue > 0 ? (
+                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success font-medium">
+                        <CheckCircle2 size={15} className="flex-shrink-0" />
+                        <span>Extra cash: +{formatMoney(diffRevenue)} above recorded sales</span>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded bg-danger-bg border border-danger/30 flex items-center gap-2 text-xs text-danger font-medium">
+                        <XCircle size={15} className="flex-shrink-0" />
+                        <span>Short by {formatMoney(Math.abs(diffRevenue))} below recorded sales</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Field 3: Actual Total Expenses Made */}
+                  <div className="p-5 rounded-lg border border-border bg-canvas/30 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
+                          <Wallet size={15} className="text-danger" />
+                          3. Actual Expenses Made
+                        </span>
+                        <p className="text-helper-xs text-muted mt-0.5">
+                          Recorded expenses: <strong className="text-ink">{formatMoney(recordedExpenses)}</strong>
+                        </p>
+                      </div>
+                      <span className="text-xs font-mono text-muted bg-canvas px-2 py-0.5 rounded border border-border">
+                        Total Spent
+                      </span>
+                    </div>
+
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">
+                        GH₵
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        disabled={closing.locked}
+                        value={
+                          actualExpensesInput !== ''
+                            ? actualExpensesInput
+                            : closing.locked
+                            ? (closing.actual_expenses != null ? String(closing.actual_expenses) : String(recordedExpenses))
+                            : (closing?.actual_expenses != null ? String(closing.actual_expenses) : (actualExpensesInput !== '' ? actualExpensesInput : ''))
+                        }
+                        onChange={(e) => setActualExpensesInput(e.target.value)}
+                        placeholder={String(recordedExpenses)}
+                        className="input-field pl-12 font-bold tabular-nums w-full"
+                      />
+                    </div>
+
+                    {diffExpenses === 0 ? (
+                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success">
+                        <CheckCircle2 size={15} className="flex-shrink-0" />
+                        <span>Matches recorded expenses ({formatMoney(recordedExpenses)}).</span>
+                      </div>
+                    ) : diffExpenses > 0 ? (
+                      <div className="p-2.5 rounded bg-warn-bg border border-warn/30 flex items-center gap-2 text-xs text-warn font-medium">
+                        <AlertTriangle size={15} className="flex-shrink-0" />
+                        <span>Extra expenses: +{formatMoney(diffExpenses)} above recorded</span>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success font-medium">
+                        <CheckCircle2 size={15} className="flex-shrink-0" />
+                        <span>Lower expenses: −{formatMoney(Math.abs(diffExpenses))} vs recorded</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Field 4: Actual Total Eggs Sold */}
+                  <div className="p-5 rounded-lg border border-border bg-canvas/30 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
+                          <Package size={15} className="text-brand" />
+                          4. Actual Eggs Sold Today
+                        </span>
+                        <p className="text-helper-xs text-muted mt-0.5">
+                          Recorded eggs sold: <strong className="text-ink">{formatEggs(recordedSold, perCrate)}</strong> ({recordedSold} eggs)
+                        </p>
+                      </div>
+                      <span className="text-xs font-mono text-muted bg-canvas px-2 py-0.5 rounded border border-border">
+                        Sold Eggs
+                      </span>
+                    </div>
+
+                    <EggQuantityInput
+                      value={actualSoldEggs}
+                      onChange={setActualSoldEggsOverride}
+                      perCrate={perCrate}
+                      disabled={closing.locked}
+                    />
+
+                    {diffSold === 0 ? (
+                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success">
+                        <CheckCircle2 size={15} className="flex-shrink-0" />
+                        <span>Matches recorded sold eggs ({recordedSold} eggs).</span>
+                      </div>
+                    ) : diffSold > 0 ? (
+                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success font-medium">
+                        <CheckCircle2 size={15} className="flex-shrink-0" />
+                        <span>Extra sold: +{formatEggs(diffSold, perCrate)} (+{diffSold} eggs vs recorded)</span>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded bg-warn-bg border border-warn/30 flex items-center gap-2 text-xs text-warn font-medium">
+                        <AlertTriangle size={15} className="flex-shrink-0" />
+                        <span>Fewer sold: −{formatEggs(Math.abs(diffSold), perCrate)} ({diffSold} eggs vs recorded)</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-label-sm text-ink mb-2">
-                    Physical Stock Counted in Storeroom
-                  </label>
-                  <EggQuantityInput
-                    value={countedEggs}
-                    onChange={setCountedEggsOverride}
-                    perCrate={perCrate}
-                    disabled={closing.locked}
-                  />
-                </div>
-
-                {diff === 0 ? (
-                  <div className="p-4 rounded-md bg-success-bg border border-success/30 flex items-center gap-3">
-                    <CheckCircle2 size={20} className="text-success flex-shrink-0" />
-                    <div>
-                      <p className="text-body-medium text-success">Matches computed stock</p>
-                      <p className="text-helper-xs text-muted">
-                        Physical count equals computed book balance ({computedClosing} eggs).
-                      </p>
-                    </div>
-                  </div>
-                ) : diff < 0 ? (
-                  <div className="p-4 rounded-md bg-danger-bg border border-danger/30 flex items-center gap-3">
-                    <XCircle size={20} className="text-danger flex-shrink-0" />
-                    <div>
-                      <p className="text-body-medium text-danger">
-                        Short by {formatEggs(Math.abs(diff), perCrate)} ({Math.abs(diff)} eggs)
-                      </p>
-                      <p className="text-helper-xs text-muted">
-                        Physical count is lower than computed book balance.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-4 rounded-md bg-warn-bg border border-warn/30 flex items-center gap-3">
-                    <AlertTriangle size={20} className="text-warn flex-shrink-0" />
-                    <div>
-                      <p className="text-body-medium text-warn">
-                        Over by {formatEggs(diff, perCrate)} (+{diff} eggs)
-                      </p>
-                      <p className="text-helper-xs text-muted">
-                        Physical count is higher than computed book balance.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="pt-2 flex justify-end">
+                {/* Bottom Action Footer */}
+                <div className="pt-4 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   {closing.locked ? (
-                    <div className="text-xs text-muted flex items-center gap-1.5">
-                      <Lock size={14} className="text-success" />
-                      This day is locked. No further staff entries can be added.
-                    </div>
+                    <>
+                      <div className="text-xs text-muted flex items-center gap-2">
+                        <Lock size={16} className="text-success flex-shrink-0" />
+                        <span>
+                          This day is locked with reconciled actuals. Physical stock anchors future opening stock, and cash differences flow into Money We Have.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setUnlockConfirmOpen(true)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md border border-warn text-warn hover:bg-warn-bg font-semibold text-xs transition-colors whitespace-nowrap self-end sm:self-auto"
+                      >
+                        <Unlock size={14} />
+                        Re-adjust / Unlock Day
+                      </button>
+                    </>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => setConfirmOpen(true)}
-                      className="btn-primary"
-                    >
-                      <Lock size={16} />
-                      Close &amp; Lock Day
-                    </button>
+                    <>
+                      <div className="text-xs text-muted">
+                        Review the 4 actual values above. Locking will override this day&apos;s figures in the Daily Book and anchor future storeroom stock.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmOpen(true)}
+                        className="btn-primary whitespace-nowrap self-end sm:self-auto"
+                      >
+                        <Lock size={16} />
+                        Close &amp; Lock Day with Actuals
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -681,17 +910,62 @@ export function EndOfDay() {
         </div>
       </div>
 
+      {/* Dialog 1: Confirm Lock with Actuals */}
       <ConfirmDialog
         isOpen={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         onConfirm={() => closeMutation.mutate()}
-        title="Close & Lock Day"
-        message={`Close and lock ${formatDate(selectedDate)} with a physical count of ${formatEggs(
-          countedEggs,
-          perCrate,
-        )}? Staff will no longer be able to add or edit entries for this date.`}
-        confirmLabel="Lock Day"
+        title="Lock Day with Reconciled Actuals"
+        message={
+          <div className="space-y-3 text-sm text-left">
+            <p className="text-muted">
+              Locking <strong>{formatDate(selectedDate)}</strong> will record the following authoritative actuals:
+            </p>
+            <div className="p-3 bg-canvas rounded border border-border space-y-1.5 font-medium text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted">Physical Storeroom Closing:</span>
+                <span className="font-bold text-ink">{formatEggs(countedEggs, perCrate)} ({countedEggs} eggs)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted">Actual Cash Gotten:</span>
+                <span className="font-bold text-success">{formatMoney(actualRevenue)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted">Actual Expenses Made:</span>
+                <span className="font-bold text-danger">{formatMoney(actualExpenses)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted">Actual Eggs Sold:</span>
+                <span className="font-bold text-brand">{formatEggs(actualSoldEggs, perCrate)} ({actualSoldEggs} eggs)</span>
+              </div>
+            </div>
+            <p className="text-helper-xs text-muted">
+              Staff will no longer be able to record or edit entries for this date. You can unlock and re-adjust at any time if needed.
+            </p>
+          </div>
+        }
+        confirmLabel="Lock Day with Actuals"
         isLoading={closeMutation.isPending}
+      />
+
+      {/* Dialog 2: Confirm Unlock / Re-adjust */}
+      <ConfirmDialog
+        isOpen={unlockConfirmOpen}
+        onClose={() => setUnlockConfirmOpen(false)}
+        onConfirm={() => unlockMutation.mutate()}
+        title="Unlock Day for Re-adjustment"
+        message={
+          <div className="space-y-2 text-sm text-left">
+            <p>
+              Are you sure you want to unlock <strong>{formatDate(selectedDate)}</strong>?
+            </p>
+            <p className="text-xs text-muted">
+              This will re-open the day so you can modify actual figures or allow staff to adjust entries. Remember to lock again when finished.
+            </p>
+          </div>
+        }
+        confirmLabel="Unlock Day"
+        isLoading={unlockMutation.isPending}
       />
     </>
   )

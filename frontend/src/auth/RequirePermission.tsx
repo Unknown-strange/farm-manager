@@ -9,8 +9,10 @@ interface RequirePermissionProps {
 
 export function RequirePermission({ permission, children }: RequirePermissionProps) {
   const { can } = useCan()
+  const perms = permission.split(',').map((p) => p.trim()).filter(Boolean)
+  const isAllowed = perms.length === 0 || perms.some((p) => can(p))
 
-  if (!can(permission)) {
+  if (!isAllowed) {
     return <Navigate to="/forbidden" replace />
   }
 

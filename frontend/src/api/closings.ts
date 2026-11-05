@@ -6,6 +6,12 @@ export interface DailyClosing {
   closing_eggs?: number | null
   counted_eggs?: number | null
   difference_eggs?: number | null
+  actual_revenue?: string | number | null
+  actual_expenses?: string | number | null
+  actual_sold_eggs?: number | null
+  recorded_revenue?: string | number | null
+  recorded_expenses?: string | number | null
+  recorded_sold_eggs?: number | null
   locked: boolean
   closed_by?: number | null
   closed_at?: string | null
@@ -14,6 +20,9 @@ export interface DailyClosing {
 export interface CloseDayPayload {
   counted_eggs: number
   opening_override?: number | null
+  actual_revenue?: number | null
+  actual_expenses?: number | null
+  actual_sold_eggs?: number | null
 }
 
 export const closingsApi = {
@@ -22,5 +31,8 @@ export const closingsApi = {
 
   closeDay: (date: string, payload: CloseDayPayload) =>
     apiClient.post<DailyClosing>(`/closings/${date}`, payload).then((r) => r.data),
+
+  unlockDay: (date: string) =>
+    apiClient.post<DailyClosing>(`/closings/${date}/unlock`).then((r) => r.data),
 }
 

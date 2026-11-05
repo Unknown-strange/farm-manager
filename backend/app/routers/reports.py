@@ -59,6 +59,8 @@ def get_reports(
                 total_expenses=book["total_expenses"],
                 net_margin=book["net_margin"],
                 projected_net_margin=book["projected_net_margin"],
+                logged_by=book.get("logged_by", []),
+                reconciled=book.get("reconciled", False),
             )
         )
     return results
@@ -92,10 +94,12 @@ def export_reports_csv(
         "Other Expenses (GH₵)",
         "Total Expenses (GH₵)",
         "Net Margin (GH₵)",
+        "Logged By Staff",
     ])
 
     for d in dates:
         book = calculate_daily_book(db, d)
+        logged_by_str = ", ".join(book.get("logged_by", [])) if book.get("logged_by") else "None"
         writer.writerow([
             str(book["business_date"]),
             book["opening"],
@@ -108,6 +112,7 @@ def export_reports_csv(
             f"{book['other']:.2f}",
             f"{book['total_expenses']:.2f}",
             f"{book['net_margin']:.2f}",
+            logged_by_str,
         ])
 
     output.seek(0)

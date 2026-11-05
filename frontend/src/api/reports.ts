@@ -12,6 +12,8 @@ export interface ReportRow {
   other: string | number
   total_expenses: string | number
   net_margin: string | number
+  logged_by?: string[]
+  reconciled?: boolean
 }
 
 export const reportsApi = {

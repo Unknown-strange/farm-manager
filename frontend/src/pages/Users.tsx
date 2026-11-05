@@ -2,7 +2,21 @@ import { useState, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { UserPlus, KeyRound, UserCheck, UserX, Trash2, ShieldCheck, Loader2, Eye, EyeOff } from 'lucide-react'
+import {
+  UserPlus,
+  KeyRound,
+  UserCheck,
+  UserX,
+  Trash2,
+  ShieldCheck,
+  Loader2,
+  Eye,
+  EyeOff,
+  Sliders,
+  Check,
+  CheckSquare,
+  Square,
+} from 'lucide-react'
 import { TopBar } from '@/components/layout/TopBar'
 import { DataTable } from '@/components/DataTable'
 import { Modal } from '@/components/Modal'
@@ -11,6 +25,112 @@ import { useToast } from '@/components/Toast'
 import { useAuth } from '@/auth/AuthContext'
 import { usersApi, type User } from '@/api/users'
 import { formatDate } from '@/lib/dates'
+
+export interface PermissionOption {
+  key: string
+  label: string
+  description: string
+  category: 'operations' | 'expenses' | 'reports'
+}
+
+export const STAFF_PERMISSIONS_CATALOG: PermissionOption[] = [
+  // Operations
+  {
+    key: 'events:create',
+    label: 'Record Entries (Sales, Harvest, Breakages)',
+    description: 'Allows recording egg sales, fresh harvest intake, and cracked eggs.',
+    category: 'operations',
+  },
+  {
+    key: 'events:read_own',
+    label: 'View Own Entries',
+    description: 'Allows viewing their personal sales and egg records in My Entries.',
+    category: 'operations',
+  },
+  {
+    key: 'events:read_all',
+    label: 'View All Farm Entries',
+    description: 'Allows viewing entries recorded by all farm workers in Entries.',
+    category: 'operations',
+  },
+  {
+    key: 'events:edit_own',
+    label: 'Edit Own Same-Day Entries',
+    description: 'Allows correcting their own recorded entries on the same business date.',
+    category: 'operations',
+  },
+  {
+    key: 'events:void_own',
+    label: 'Void Own Entries',
+    description: 'Allows canceling erroneous entries they recorded.',
+    category: 'operations',
+  },
+
+  // Expenses
+  {
+    key: 'expenses:create',
+    label: 'Record Expenses',
+    description: 'Allows logging daily feed, medicine, transport, and supplies costs.',
+    category: 'expenses',
+  },
+  {
+    key: 'expenses:undo_own',
+    label: 'Undo Recent Expense (10 Mins)',
+    description: 'Allows deleting an expense within 10 minutes of creation.',
+    category: 'expenses',
+  },
+  {
+    key: 'expenses:read',
+    label: 'View Expenses List',
+    description: 'Allows seeing the farm expenses records.',
+    category: 'expenses',
+  },
+
+  // Financials & Reports
+  {
+    key: 'summary:read_own',
+    label: 'View Personal Shift Summary',
+    description: 'Allows seeing personal crates sold and money collected on Worker Station.',
+    category: 'reports',
+  },
+  {
+    key: 'summary:read_all',
+    label: 'View Farm Financial Totals (Dashboard & Summary)',
+    description: 'Allows seeing total farm revenue, expense totals, and daily closing book.',
+    category: 'reports',
+  },
+  {
+    key: 'reports:read',
+    label: 'View History & Daily Ledger',
+    description: 'Allows viewing past daily book history and exporting CSV reports.',
+    category: 'reports',
+  },
+]
+
+export const PRESET_FULL_STAFF = [
+  'events:create',
+  'events:read_own',
+  'events:edit_own',
+  'events:void_own',
+  'expenses:create',
+  'expenses:undo_own',
+  'summary:read_own',
+]
+
+export const PRESET_VIEW_ONLY = [
+  'events:read_all',
+  'expenses:read',
+  'summary:read_own',
+  'summary:read_all',
+  'reports:read',
+]
+
+export const PRESET_SALES_ONLY = [
+  'events:create',
+  'events:read_own',
+  'events:edit_own',
+  'summary:read_own',
+]
 
 // Validation for creating user
 const createUserSchema = z.object({
@@ -21,6 +141,157 @@ const createUserSchema = z.object({
 })
 
 type CreateUserFormValues = z.infer<typeof createUserSchema>
+
+function PermissionSelector({
+  selected,
+  onChange,
+}: {
+  selected: string[]
+  onChange: (perms: string[]) => void
+}) {
+  const togglePermission = (key: string) => {
+    if (selected.includes(key)) {
+      onChange(selected.filter((p) => p !== key))
+    } else {
+      onChange([...selected, key])
+    }
+  }
+
+  const isViewOnlyActive =
+    PRESET_VIEW_ONLY.every((p) => selected.includes(p)) &&
+    !selected.includes('events:create') &&
+    !selected.includes('expenses:create')
+
+  const isFullStaffActive =
+    PRESET_FULL_STAFF.every((p) => selected.includes(p)) &&
+    PRESET_FULL_STAFF.length === selected.length
+
+  const isSalesOnlyActive =
+    PRESET_SALES_ONLY.every((p) => selected.includes(p)) &&
+    PRESET_SALES_ONLY.length === selected.length
+
+  const categories: { id: PermissionOption['category']; title: string; icon: string }[] = [
+    { id: 'operations', title: 'Egg Sales & Intake Operations', icon: '🥚' },
+    { id: 'expenses', title: 'Farm Expenses & Costs', icon: '💰' },
+    { id: 'reports', title: 'Financials, Summaries & Reports', icon: '📊' },
+  ]
+
+  return (
+    <div className="space-y-4 pt-2">
+      <div>
+        <label className="block text-label-sm text-ink mb-1.5">
+          Quick Access Presets
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={() => onChange(PRESET_FULL_STAFF)}
+            className={`px-3 py-2 text-xs font-semibold rounded border text-left transition-colors flex items-center justify-between ${
+              isFullStaffActive
+                ? 'border-brand bg-brand-tint text-brand shadow-xs'
+                : 'border-border bg-card text-muted hover:border-brand/40'
+            }`}
+          >
+            <span>🟢 Full Staff Access</span>
+            {isFullStaffActive && <Check size={14} />}
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange(PRESET_VIEW_ONLY)}
+            className={`px-3 py-2 text-xs font-semibold rounded border text-left transition-colors flex items-center justify-between ${
+              isViewOnlyActive
+                ? 'border-brand bg-brand-tint text-brand shadow-xs'
+                : 'border-border bg-card text-muted hover:border-brand/40'
+            }`}
+          >
+            <span>👁️ View-Only (No Entries)</span>
+            {isViewOnlyActive && <Check size={14} />}
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange(PRESET_SALES_ONLY)}
+            className={`px-3 py-2 text-xs font-semibold rounded border text-left transition-colors flex items-center justify-between ${
+              isSalesOnlyActive
+                ? 'border-brand bg-brand-tint text-brand shadow-xs'
+                : 'border-border bg-card text-muted hover:border-brand/40'
+            }`}
+          >
+            <span>🛒 Sales & Harvest Only</span>
+            {isSalesOnlyActive && <Check size={14} />}
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-3 border-t border-border pt-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted">
+            Granular Permissions Checklist ({selected.length} Selected)
+          </span>
+          <div className="flex items-center gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => onChange(STAFF_PERMISSIONS_CATALOG.map((p) => p.key))}
+              className="text-brand hover:underline font-medium"
+            >
+              Select All
+            </button>
+            <span className="text-border">·</span>
+            <button
+              type="button"
+              onClick={() => onChange([])}
+              className="text-muted hover:text-danger font-medium"
+            >
+              Clear All
+            </button>
+          </div>
+        </div>
+
+        {categories.map((cat) => {
+          const items = STAFF_PERMISSIONS_CATALOG.filter((p) => p.category === cat.id)
+          return (
+            <div key={cat.id} className="p-3 rounded-lg border border-border bg-canvas/40 space-y-2">
+              <h4 className="text-xs font-bold text-ink flex items-center gap-1.5">
+                <span>{cat.icon}</span>
+                <span>{cat.title}</span>
+              </h4>
+              <div className="space-y-1.5">
+                {items.map((opt) => {
+                  const isChecked = selected.includes(opt.key)
+                  return (
+                    <div
+                      key={opt.key}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        togglePermission(opt.key)
+                      }}
+                      className={`flex items-start gap-2.5 p-2 rounded cursor-pointer transition-colors border ${
+                        isChecked
+                          ? 'bg-card border-brand/40 shadow-xs'
+                          : 'bg-card/50 border-transparent hover:bg-card'
+                      }`}
+                    >
+                      <div className="mt-0.5 text-brand flex-shrink-0">
+                        {isChecked ? <CheckSquare size={16} /> : <Square size={16} className="text-muted" />}
+                      </div>
+                      <div className="text-left select-none flex-1">
+                        <span className={`block text-xs font-semibold ${isChecked ? 'text-ink' : 'text-muted'}`}>
+                          {opt.label}
+                        </span>
+                        <span className="block text-[11px] text-muted leading-tight mt-0.5">
+                          {opt.description}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 export function Users() {
   const toast = useToast()
@@ -51,6 +322,13 @@ export function Users() {
   const [showResetPassword, setShowResetPassword] = useState(false)
 
   const [selectedRole, setSelectedRole] = useState<'staff' | 'admin'>('staff')
+  const [addPermissions, setAddPermissions] = useState<string[]>(PRESET_FULL_STAFF)
+
+  // Edit permissions modal state
+  const [permissionTarget, setPermissionTarget] = useState<User | null>(null)
+  const [editPermissions, setEditPermissions] = useState<string[]>(PRESET_FULL_STAFF)
+  const [isSavingPermissions, setIsSavingPermissions] = useState(false)
+  const [permissionError, setPermissionError] = useState('')
 
   const {
     register,
@@ -90,15 +368,37 @@ export function Users() {
         username: data.username.trim().toLowerCase(),
         password: data.password,
         role: data.role,
+        permissions: data.role === 'staff' ? addPermissions : undefined,
       })
       toast(`User @${data.username} created successfully.`, 'success')
       setIsAddModalOpen(false)
       reset({ role: 'staff' })
       setSelectedRole('staff')
+      setAddPermissions(PRESET_FULL_STAFF)
       reloadUsers()
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setAddError(typeof detail === 'string' ? detail : 'Failed to create user. Username may already exist.')
+    }
+  }
+
+  const handleSaveEditPermissions = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!permissionTarget) return
+    setIsSavingPermissions(true)
+    setPermissionError('')
+    try {
+      await usersApi.updateUser(permissionTarget.id, {
+        permissions: editPermissions,
+      })
+      toast(`Permissions for @${permissionTarget.username} updated successfully.`, 'success')
+      setPermissionTarget(null)
+      reloadUsers()
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setPermissionError(typeof detail === 'string' ? detail : 'Failed to update permissions.')
+    } finally {
+      setIsSavingPermissions(false)
     }
   }
 
@@ -194,6 +494,62 @@ export function Users() {
       ),
     },
     {
+      key: 'permissions',
+      header: 'Permissions & Access',
+      render: (u: User) => {
+        if (u.role === 'admin') {
+          return (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-brand-tint text-brand">
+              <ShieldCheck size={12} />
+              Full Admin (*)
+            </span>
+          )
+        }
+        const perms = u.permissions || []
+        const isViewOnly =
+          perms.length > 0 &&
+          !perms.includes('events:create') &&
+          !perms.includes('expenses:create')
+        const isFullStaff =
+          perms.includes('events:create') &&
+          perms.includes('expenses:create') &&
+          perms.includes('events:edit_own')
+        const isSalesOnly =
+          perms.includes('events:create') &&
+          !perms.includes('expenses:create')
+
+        if (isViewOnly) {
+          return (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-warn-bg text-warn border border-warn/30">
+              <Eye size={12} />
+              View-Only
+            </span>
+          )
+        }
+        if (isFullStaff) {
+          return (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-success-bg text-success border border-success-border">
+              <Check size={12} />
+              Full Staff
+            </span>
+          )
+        }
+        if (isSalesOnly) {
+          return (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-intake-bg text-intake border border-intake/30">
+              <Check size={12} />
+              Sales &amp; Harvest
+            </span>
+          )
+        }
+        return (
+          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-canvas text-ink border border-border">
+            {perms.length} Permissions
+          </span>
+        )
+      },
+    },
+    {
       key: 'status',
       header: 'Account Status',
       render: (u: User) => {
@@ -226,6 +582,25 @@ export function Users() {
         const isSelf = currentUser?.id === u.id
         return (
           <div className="flex items-center justify-end gap-1.5">
+            {/* Edit Permissions button for staff */}
+            {u.role === 'staff' && !u.is_deleted && (
+              <button
+                onClick={() => {
+                  setPermissionTarget(u)
+                  setEditPermissions(
+                    u.permissions && u.permissions.length > 0
+                      ? u.permissions
+                      : PRESET_FULL_STAFF,
+                  )
+                  setPermissionError('')
+                }}
+                title="Edit Staff Permissions & Access Rights"
+                className="p-1.5 rounded hover:bg-brand-tint text-muted hover:text-brand transition-colors"
+              >
+                <Sliders size={16} />
+              </button>
+            )}
+
             {/* Reset password button */}
             {!u.is_deleted && (
               <button
@@ -339,7 +714,7 @@ export function Users() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         title="Create New User Account"
-        maxWidth="max-w-form"
+        maxWidth={selectedRole === 'staff' ? 'max-w-2xl' : 'max-w-form'}
       >
         <form onSubmit={handleSubmit(onAddUserSubmit)} noValidate className="space-y-4">
           {addError && (
@@ -432,6 +807,16 @@ export function Users() {
             </div>
           </div>
 
+          {/* Permissions section for staff */}
+          {selectedRole === 'staff' && (
+            <div className="pt-2 border-t border-border">
+              <PermissionSelector
+                selected={addPermissions}
+                onChange={setAddPermissions}
+              />
+            </div>
+          )}
+
           <div className="flex justify-end gap-3 pt-3 border-t border-border mt-6">
             <button
               type="button"
@@ -452,6 +837,61 @@ export function Users() {
                 </>
               ) : (
                 'Create User'
+              )}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* MODAL 2: Edit Staff Permissions */}
+      <Modal
+        isOpen={Boolean(permissionTarget)}
+        onClose={() => setPermissionTarget(null)}
+        title={`Edit Staff Permissions · @${permissionTarget?.username}`}
+        maxWidth="max-w-2xl"
+      >
+        <form onSubmit={handleSaveEditPermissions} className="space-y-4">
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-canvas border border-border">
+            <div className="w-9 h-9 rounded-full bg-brand-tint text-brand flex items-center justify-center font-bold text-sm uppercase flex-shrink-0">
+              {permissionTarget?.name.charAt(0)}
+            </div>
+            <div>
+              <p className="font-semibold text-ink text-sm leading-tight">{permissionTarget?.name}</p>
+              <p className="text-xs text-muted">Configure what this staff worker can do and see across Egg Book</p>
+            </div>
+          </div>
+
+          {permissionError && (
+            <div className="bg-danger-bg border border-danger-border text-danger text-sm rounded px-3 py-2">
+              {permissionError}
+            </div>
+          )}
+
+          <PermissionSelector
+            selected={editPermissions}
+            onChange={setEditPermissions}
+          />
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-border">
+            <button
+              type="button"
+              onClick={() => setPermissionTarget(null)}
+              className="btn-outline"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSavingPermissions}
+              className="btn-primary"
+            >
+              {isSavingPermissions ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Saving Permissions…
+                </>
+              ) : (
+                'Save Permissions'
               )}
             </button>
           </div>
