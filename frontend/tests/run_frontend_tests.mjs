@@ -96,6 +96,7 @@ test('Date utilities: todayString produces YYYY-MM-DD in Africa/Accra', () => {
 test('API client layer: all 8 domain API modules exist and are wired', () => {
   const requiredApiFiles = [
     'client.ts',
+    'health.ts',
     'auth.ts',
     'events.ts',
     'expenses.ts',
@@ -267,6 +268,21 @@ test('Entries daily totals and Summary period filters + Borrowed settlement wiri
   const dashboardSrc = fs.readFileSync(path.join(srcDir, 'pages/Dashboard.tsx'), 'utf8')
   assert.ok(dashboardSrc.includes('Reconciled & Locked'), 'Dashboard must display Reconciled & Locked badge')
   assert.ok(historySrc.includes('Reconciled'), 'History page must display Reconciled badge on reconciled days')
+})
+
+test('Backend Health check on website opening and extended login timeout (5 mins)', () => {
+  const healthSrc = fs.readFileSync(path.join(srcDir, 'api/health.ts'), 'utf8')
+  assert.ok(healthSrc.includes('startHealthCheck'), 'health.ts must export startHealthCheck')
+  assert.ok(healthSrc.includes('waitForBackendReady'), 'health.ts must export waitForBackendReady')
+  assert.ok(healthSrc.includes('useBackendHealth'), 'health.ts must export useBackendHealth')
+  assert.ok(healthSrc.includes('300_000'), 'health.ts must support 5 minute timeout (300_000ms)')
+
+  const authSrc = fs.readFileSync(path.join(srcDir, 'api/auth.ts'), 'utf8')
+  assert.ok(authSrc.includes('waitForBackendReady'), 'auth.ts must wait for backend health check before logging in')
+  assert.ok(authSrc.includes('300_000'), 'auth.ts must configure extended 5-minute timeout for login')
+
+  const mainSrc = fs.readFileSync(path.join(srcDir, 'main.tsx'), 'utf8')
+  assert.ok(mainSrc.includes('api/health'), 'main.tsx must import health module so health check starts on website load')
 })
 
 console.log(`\n✅ All ${passed} frontend system instance checks passed!`)

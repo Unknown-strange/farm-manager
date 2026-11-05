@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { API_URL } from '@/api/client'
+import { useBackendHealth } from '@/api/health'
 
 const schema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -15,6 +16,7 @@ type FormValues = z.infer<typeof schema>
 
 export function Login() {
   const { login, user } = useAuth()
+  const health = useBackendHealth()
   const navigate = useNavigate()
   const [serverError, setServerError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -46,7 +48,7 @@ export function Login() {
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { detail?: string } } }
       if (!axiosErr.response) {
-        setServerError(`Cannot connect to backend server (${API_URL}). Please verify the API is online and CORS is allowed.`)
+        setServerError(`Cannot connect to backend server (${API_URL}). The server did not respond in time. Please verify the API is online.`)
       } else {
         const detail = axiosErr.response?.data?.detail
         setServerError(typeof detail === 'string' ? detail : 'Wrong username or password.')
@@ -73,6 +75,19 @@ export function Login() {
         {/* Card */}
         <div className="card p-5 sm:p-8">
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
+            {/* Backend cold start / warming up notification */}
+            {health.status === 'warming_up' && (
+              <div className="bg-canvas border border-brand/30 text-ink text-xs rounded px-3.5 py-3 flex items-start gap-2.5">
+                <Loader2 size={16} className="text-brand animate-spin flex-shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold text-ink">Server waking up…</span>
+                  <p className="text-muted mt-0.5">
+                    Connecting to server (attempt #{health.attempts}). Your login request will wait for the server to be ready before proceeding.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Server error */}
             {serverError && (
               <div className="bg-danger-bg border border-danger-border text-danger text-sm rounded px-4 py-3">
@@ -137,8 +152,12 @@ export function Login() {
               {isSubmitting ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  Signing in…
+                  {health.status !== 'ready'
+                    ? 'Waiting for server & signing in…'
+                    : 'Signing in…'}
                 </>
+              ) : health.status === 'warming_up' ? (
+                'Sign In (Waking up server…)'
               ) : (
                 'Sign In'
               )}
@@ -153,4 +172,3 @@ export function Login() {
     </div>
   )
 }
-

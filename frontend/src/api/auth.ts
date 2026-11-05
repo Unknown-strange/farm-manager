@@ -1,4 +1,5 @@
 import { apiClient } from './client'
+import { waitForBackendReady } from './health'
 
 export interface LoginResponse {
   access_token: string
@@ -15,12 +16,27 @@ export interface MeResponse {
 }
 
 export const authApi = {
-  login: (username: string, password: string) =>
-    apiClient
-      .post<LoginResponse>('/auth/login', { username, password })
-      .then((r) => r.data),
+  login: async (username: string, password: string) => {
+    // 1. Wait for backend health check to succeed (up to 5 minutes)
+    await waitForBackendReady(300_000)
 
-  me: () => apiClient.get<MeResponse>('/auth/me').then((r) => r.data),
+    // 2. Execute login request with extended 5-minute timeout
+    return apiClient
+      .post<LoginResponse>(
+        '/auth/login',
+        { username, password },
+        { timeout: 300_000 },
+      )
+      .then((r) => r.data)
+  },
+
+  me: async () => {
+    // Ensure backend is awake before fetching current user profile
+    await waitForBackendReady(300_000)
+    return apiClient
+      .get<MeResponse>('/auth/me', { timeout: 300_000 })
+      .then((r) => r.data)
+  },
 
   changePassword: (current_password: string, new_password: string) =>
     apiClient
