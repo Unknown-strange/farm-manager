@@ -43,6 +43,61 @@ export interface DailyBookSummary {
 
 export type SummaryPeriod = 'day' | 'week' | 'month' | 'year' | 'all' | 'custom'
 
+export interface DailyFinancialSummaryItem {
+  date: string
+  day_name: string
+  opening_money: string | number
+  cash_revenue: string | number
+  borrowed_amount: string | number
+  total_sales_value: string | number
+  feed_expenses: string | number
+  other_expenses: string | number
+  total_expenses: string | number
+  net_cash_flow: string | number
+  closing_money: string | number
+  logged_by: string[]
+  sales_count: number
+  expenses_count: number
+}
+
+export interface PeriodExpenseItem {
+  id: number
+  business_date: string
+  category: 'feed' | 'other'
+  name: string
+  quantity?: string | null
+  amount: string | number
+  created_by_name: string
+  created_at: string
+}
+
+export interface FinancialTransactionItem {
+  id: string
+  kind: 'sale_cash' | 'sale_borrowed' | 'expense_feed' | 'expense_other' | 'settlement'
+  business_date: string
+  occurred_at: string
+  title: string
+  description?: string | null
+  amount: string | number
+  is_cash_in: boolean
+  user_name: string
+  crates?: number | null
+  eggs?: number | null
+  paid: boolean
+}
+
+export interface DailyEggStockItem {
+  date: string
+  day_name: string
+  opening_eggs: number
+  received_eggs: number
+  sold_eggs: number
+  cracked_eggs: number
+  adjustment_eggs: number
+  closing_eggs: number
+  locked: boolean
+}
+
 export interface PeriodSummary {
   period: SummaryPeriod
   start_date: string
@@ -52,17 +107,24 @@ export interface PeriodSummary {
   cracked_eggs: number
   sold_eggs: number
   closing_eggs: number
+  stock_adjustment_eggs?: number
   beginning_money?: string | number
   cash_revenue: string | number
   borrowed_unpaid_amount: string | number
   borrowed_paid_amount: string | number
   total_sales_amount: string | number
+  unpaid_borrowed_all_time?: string | number
+  unpaid_borrowed_outside_period?: string | number
   feed_expenses: string | number
   other_expenses: string | number
   total_expenses: string | number
   money_left_present: string | number
   money_left_with_borrowed: string | number
   borrowed_sales: EggEvent[]
+  daily_financials?: DailyFinancialSummaryItem[]
+  daily_egg_stock?: DailyEggStockItem[]
+  expenses?: PeriodExpenseItem[]
+  financial_transactions?: FinancialTransactionItem[]
 }
 
 export interface StaffSummary {

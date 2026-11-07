@@ -75,6 +75,8 @@ export function Expenses() {
       setNewAmount('')
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
       queryClient.invalidateQueries({ queryKey: ['summary'] })
+      queryClient.invalidateQueries({ queryKey: ['period-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-book'] })
     },
     onError: (err: unknown) => {
       const msg =
@@ -103,6 +105,8 @@ export function Expenses() {
       setEditingExpense(null)
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
       queryClient.invalidateQueries({ queryKey: ['summary'] })
+      queryClient.invalidateQueries({ queryKey: ['period-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-book'] })
     },
     onError: (err: unknown) => {
       const msg =
@@ -119,6 +123,8 @@ export function Expenses() {
       setVoidingExpense(null)
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
       queryClient.invalidateQueries({ queryKey: ['summary'] })
+      queryClient.invalidateQueries({ queryKey: ['period-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-book'] })
     },
     onError: (err: unknown) => {
       const msg =

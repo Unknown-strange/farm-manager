@@ -251,9 +251,9 @@ export function Dashboard() {
                     </div>
 
                     <div className="px-6 py-3.5 flex items-center justify-between text-body-default">
-                      <span className="text-danger font-medium">(-) Eggs cracked</span>
+                      <span className="text-muted font-medium">Eggs cracked (Recorded)</span>
                       <span className="font-semibold text-danger tabular-nums">
-                        - {formatEggs(book.cracked, perCrate)}{' '}
+                        {formatEggs(book.cracked, perCrate)}{' '}
                         <span className="text-xs text-muted font-normal">({book.cracked} eggs)</span>
                       </span>
                     </div>

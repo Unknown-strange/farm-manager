@@ -41,15 +41,22 @@ export function BeginningEntry() {
     queryFn: () => summaryApi.getPeriodSummary({ period: 'all', date: today }),
   })
 
-  // 2. State for Manual Money & Beginning Egg Stock
+  // 2. State for Manual Money & Egg Stock (Available Now, Opening Day Eggs, or Initial Beginning Stock)
   const [moneyMode, setMoneyMode] = useState<'exact_present' | 'beginning_base'>('exact_present')
   const [moneyInput, setMoneyInput] = useState<string>('')
+  const [eggMode, setEggMode] = useState<'exact_present' | 'opening_day' | 'beginning_base'>('exact_present')
+  const [eggOpeningDate, setEggOpeningDate] = useState<string>(today)
   const [beginningEggs, setBeginningEggs] = useState<number>(0)
   const [balancesInitialized, setBalancesInitialized] = useState(false)
 
+  const { data: selectedDayBook } = useQuery({
+    queryKey: ['summary', eggOpeningDate],
+    queryFn: () => summaryApi.getDailyBook(eggOpeningDate),
+  })
+
   useEffect(() => {
     if (settings && allTimeSummary && !balancesInitialized) {
-      setBeginningEggs(Number(settings.beginning_eggs ?? 0))
+      setBeginningEggs(Number(allTimeSummary.closing_eggs ?? settings.beginning_eggs ?? 0))
       setMoneyInput(String(Number(allTimeSummary.money_left_present ?? 0).toFixed(2)))
       setBalancesInitialized(true)
     }
@@ -64,23 +71,59 @@ export function BeginningEntry() {
     }
   }
 
+  const handleEggModeChange = (mode: 'exact_present' | 'opening_day' | 'beginning_base') => {
+    setEggMode(mode)
+    if (mode === 'exact_present' && allTimeSummary) {
+      setBeginningEggs(Number(allTimeSummary.closing_eggs ?? 0))
+    } else if (mode === 'opening_day' && selectedDayBook) {
+      setBeginningEggs(Number(selectedDayBook.opening ?? 0))
+    } else if (mode === 'beginning_base' && settings) {
+      setBeginningEggs(Number(settings.beginning_eggs ?? 0))
+    }
+  }
+
+  const handleEggOpeningDateChange = (newDate: string) => {
+    setEggOpeningDate(newDate)
+  }
+
+  useEffect(() => {
+    if (eggMode === 'opening_day' && selectedDayBook) {
+      setBeginningEggs(Number(selectedDayBook.opening ?? 0))
+    }
+  }, [eggMode, selectedDayBook])
+
   const updateBalancesMutation = useMutation({
     mutationFn: async () => {
       const parsedMoney = parseFloat(moneyInput)
       if (isNaN(parsedMoney)) {
         throw new Error('Please enter a valid money amount')
       }
-      if (moneyMode === 'exact_present') {
-        return settingsApi.updateSettings({
-          beginning_eggs: beginningEggs,
-          target_present_money: Number(parsedMoney.toFixed(2)),
-        })
+      const payload: {
+        beginning_eggs?: number
+        target_present_eggs?: number
+        target_opening_eggs?: number
+        target_opening_date?: string
+        beginning_money?: number
+        target_present_money?: number
+      } = {}
+
+      if (eggMode === 'exact_present') {
+        payload.target_present_eggs = beginningEggs
+        payload.target_opening_date = today
+      } else if (eggMode === 'opening_day') {
+        payload.target_opening_eggs = beginningEggs
+        payload.target_opening_date = eggOpeningDate || today
       } else {
-        return settingsApi.updateSettings({
-          beginning_eggs: beginningEggs,
-          beginning_money: Number(parsedMoney.toFixed(2)),
-        })
+        payload.beginning_eggs = beginningEggs
       }
+
+      if (moneyMode === 'exact_present') {
+        payload.target_present_money = Number(parsedMoney.toFixed(2))
+      } else {
+        payload.beginning_money = Number(parsedMoney.toFixed(2))
+      }
+
+      return settingsApi.updateSettings(payload)
     },
     onSuccess: () => {
       toast('Money and egg stock balances updated!', 'success')
@@ -308,7 +351,10 @@ export function BeginningEntry() {
                 {isSummaryLoading ? '—' : formatEggs(currentEggStock, perCrate)}
               </p>
               <p className="text-xs text-muted mt-1.5">
-                {currentEggStock.toLocaleString()} total eggs (Beginning stock: {formatEggs(beginningEggsVal, perCrate)})
+                {currentEggStock.toLocaleString()} total eggs · Opening Day Eggs ({eggOpeningDate === today ? 'Today' : formatDate(eggOpeningDate)}):{' '}
+                <strong className="text-ink">
+                  {selectedDayBook ? formatEggs(Number(selectedDayBook.opening ?? 0), perCrate) : formatEggs(beginningEggsVal, perCrate)}
+                </strong>
               </p>
             </div>
 
@@ -400,14 +446,87 @@ export function BeginningEntry() {
                   </div>
                 </div>
 
-                {/* Right: Beginning Egg Stock Control */}
+                {/* Right: Egg Stock & Opening Day Eggs Control */}
                 <div className="space-y-3 bg-canvas/60 p-4 rounded-lg border border-border">
                   <label className="text-label-sm font-semibold text-ink flex items-center gap-2">
                     <Egg size={16} className="text-brand" />
-                    Beginning Eggs We Already Have
+                    Beginning Eggs We Already Have / Eggs Available
                   </label>
+
+                  {/* Egg Mode Selector */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleEggModeChange('exact_present')}
+                      className={`py-2 px-3 rounded text-xs font-semibold border text-left transition-colors ${
+                        eggMode === 'exact_present'
+                          ? 'bg-brand text-white border-brand'
+                          : 'bg-card text-muted border-border hover:text-ink'
+                      }`}
+                    >
+                      Set Eggs Available Now (In Stock)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleEggModeChange('opening_day')}
+                      className={`py-2 px-3 rounded text-xs font-semibold border text-left transition-colors ${
+                        eggMode === 'opening_day'
+                          ? 'bg-brand text-white border-brand'
+                          : 'bg-card text-muted border-border hover:text-ink'
+                      }`}
+                    >
+                      Set Opening Day Eggs (Start of Day)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleEggModeChange('beginning_base')}
+                      className={`py-2 px-3 rounded text-xs font-semibold border text-left transition-colors ${
+                        eggMode === 'beginning_base'
+                          ? 'bg-brand text-white border-brand'
+                          : 'bg-card text-muted border-border hover:text-ink'
+                      }`}
+                    >
+                      Set Initial Beginning Stock
+                    </button>
+                  </div>
+
+                  {eggMode === 'opening_day' && (
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 bg-card p-2.5 rounded border border-border">
+                      <label className="text-xs font-semibold text-ink whitespace-nowrap">
+                        Opening Day Date:
+                      </label>
+                      <div className="flex items-center gap-2 flex-1">
+                        <input
+                          type="date"
+                          value={eggOpeningDate}
+                          onChange={(e) => handleEggOpeningDateChange(e.target.value)}
+                          className="input-base py-1 px-2.5 text-xs font-medium w-auto"
+                        />
+                        {eggOpeningDate !== today && (
+                          <button
+                            type="button"
+                            onClick={() => handleEggOpeningDateChange(today)}
+                            className="text-xs font-semibold text-brand hover:underline"
+                          >
+                            Today
+                          </button>
+                        )}
+                      </div>
+                      <span className="text-[11px] text-muted">
+                        Current opening:{' '}
+                        <strong className="text-ink">
+                          {formatEggs(Number(selectedDayBook?.opening ?? 0), perCrate)}
+                        </strong>
+                      </span>
+                    </div>
+                  )}
+
                   <p className="text-xs text-muted">
-                    Enter the initial crates and single eggs already in storage when starting the book:
+                    {eggMode === 'exact_present'
+                      ? 'Enter the exact crates and single eggs currently available in stock right now:'
+                      : eggMode === 'opening_day'
+                        ? `Enter the crates and single eggs used to start ${eggOpeningDate === today ? 'today' : formatDate(eggOpeningDate)} (Opening Day Eggs):`
+                        : 'Enter the initial crates and single eggs already in storage when starting the book:'}
                   </p>
                   <EggQuantityInput
                     value={beginningEggs}

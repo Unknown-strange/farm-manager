@@ -45,6 +45,8 @@ export function CrackedEggs() {
       setIdempotencyKey(crypto.randomUUID())
       queryClient.invalidateQueries({ queryKey: ['events'] })
       queryClient.invalidateQueries({ queryKey: ['summary'] })
+      queryClient.invalidateQueries({ queryKey: ['period-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-book'] })
     },
     onError: (err: unknown) => {
       const msg =
@@ -116,7 +118,7 @@ export function CrackedEggs() {
                 />
                 {eggs > 0 && (
                   <p className="mt-1.5 text-helper-xs font-medium text-danger">
-                    Deducting {formatEggs(eggs, perCrate)} ({eggs} total eggs) as loss
+                    Recording {formatEggs(eggs, perCrate)} ({eggs} total eggs) as cracked
                   </p>
                 )}
               </div>

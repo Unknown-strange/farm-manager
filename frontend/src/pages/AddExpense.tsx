@@ -60,6 +60,8 @@ export function AddExpense() {
       setUndoState({ id: res.id, undoUntilMs, remainingSec })
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
       queryClient.invalidateQueries({ queryKey: ['summary'] })
+      queryClient.invalidateQueries({ queryKey: ['period-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-book'] })
     },
     onError: (err: unknown) => {
       const msg =
@@ -76,6 +78,8 @@ export function AddExpense() {
       setUndoState(null)
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
       queryClient.invalidateQueries({ queryKey: ['summary'] })
+      queryClient.invalidateQueries({ queryKey: ['period-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-book'] })
     },
     onError: (err: unknown) => {
       const msg =

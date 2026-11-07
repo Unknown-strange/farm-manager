@@ -2,18 +2,24 @@
 
 from decimal import Decimal
 from fastapi import APIRouter, Depends
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Setting, User
+from app.models import DailyClosing, EggEvent, Setting, User
 from app.schemas import SettingsResponse, SettingsUpdate
 from app.security import (
+    get_business_date,
     get_current_user,
     require_permission,
 )
 from app.permissions import SETTINGS_MANAGE
 from app.services.audit import record_audit
-from app.services.book import calculate_all_time_net_cash_flow
+from app.services.book import (
+    _net_egg_change_case,
+    calculate_all_time_net_cash_flow,
+    calculate_all_time_net_egg_change,
+)
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -65,6 +71,53 @@ def update_settings(
         setting.currency = payload.currency
     if payload.beginning_eggs is not None:
         setting.beginning_eggs = payload.beginning_eggs
+        if payload.target_opening_eggs is None and payload.target_present_eggs is None:
+            today_closing = db.get(DailyClosing, get_business_date())
+            if today_closing is not None and not today_closing.locked:
+                today_closing.opening_override = None
+
+    if payload.target_opening_eggs is not None:
+        ref_date = payload.target_opening_date or get_business_date()
+        closing = db.get(DailyClosing, ref_date)
+        if not closing:
+            closing = DailyClosing(business_date=ref_date)
+            db.add(closing)
+        closing.opening_override = payload.target_opening_eggs
+
+        prior_events = db.scalar(
+            select(func.count()).where(
+                EggEvent.business_date < ref_date,
+                EggEvent.voided.is_(False),
+                EggEvent.exclude_from_stock.is_(False),
+            )
+        ) or 0
+        if prior_events == 0:
+            setting.beginning_eggs = payload.target_opening_eggs
+
+    if payload.target_present_eggs is not None:
+        ref_date = payload.target_opening_date or get_business_date()
+        day_net = int(
+            db.scalar(
+                select(func.coalesce(func.sum(_net_egg_change_case()), 0)).where(
+                    EggEvent.business_date == ref_date,
+                    EggEvent.voided.is_(False),
+                    EggEvent.exclude_from_stock.is_(False),
+                )
+            )
+            or 0
+        )
+        needed_opening = payload.target_present_eggs - day_net
+        closing = db.get(DailyClosing, ref_date)
+        if not closing:
+            closing = DailyClosing(business_date=ref_date)
+            db.add(closing)
+        closing.opening_override = needed_opening
+        if closing.locked and closing.counted_eggs is not None:
+            closing.counted_eggs = payload.target_present_eggs
+
+        all_net = calculate_all_time_net_egg_change(db, up_to_date=ref_date)
+        setting.beginning_eggs = max(0, payload.target_present_eggs - all_net)
+
     if payload.beginning_money is not None:
         setting.beginning_money = round(Decimal(payload.beginning_money), 2)
     if payload.target_present_money is not None:

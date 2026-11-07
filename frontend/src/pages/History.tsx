@@ -220,7 +220,7 @@ export function History() {
                           +{formatEggs(row.gotten, perCrate)}
                         </td>
                         <td className="py-3.5 px-4 text-danger tabular-nums whitespace-nowrap">
-                          -{formatEggs(row.cracked, perCrate)}
+                          {formatEggs(row.cracked, perCrate)}
                         </td>
                         <td className="py-3.5 px-4 text-success tabular-nums whitespace-nowrap">
                           -{formatEggs(row.sold, perCrate)}
@@ -235,9 +235,8 @@ export function History() {
                           {formatMoney(Number(row.total_expenses))}
                         </td>
                         <td
-                          className={`py-3.5 px-4 text-right font-bold tabular-nums whitespace-nowrap ${
-                            Number(row.net_margin) >= 0 ? 'text-success' : 'text-danger'
-                          }`}
+                          className={`py-3.5 px-4 text-right font-bold tabular-nums whitespace-nowrap ${Number(row.net_margin) >= 0 ? 'text-success' : 'text-danger'
+                            }`}
                         >
                           {formatMoney(Number(row.net_margin))}
                         </td>

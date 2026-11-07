@@ -120,7 +120,7 @@ def test_daily_book_math(client, admin_headers):
     assert book["gotten"] == 1000
     assert book["cracked"] == 10
     assert book["sold"] == 300
-    assert book["closing"] == 1000 - 10 - 300  # 690
+    assert book["closing"] == 1000 - 300  # 700 (cracked is recorded, not subtracted from closing stock)
     assert float(book["revenue"]) == 450.00
     assert float(book["feed"]) == 100.00
     assert float(book["other"]) == 50.00
@@ -399,11 +399,16 @@ def test_beginning_entry_balances_and_historical_borrowed_flow(client, admin_hea
     assert float(ps2["borrowed_unpaid_amount"]) == 135.00
     assert float(ps2["money_left_with_borrowed"]) == 1635.00
 
-    # Also verify Summary page default period=week shows the unpaid borrowed amount (135.00) and projected money (1635.00)
+    # Also verify Summary page: default period=week on today has 0 in-period borrowed, but tracks all-time open debt (135.00)
     ps_week = client.get(f"/summary/period?period=week&date={today}", headers=admin_headers).json()
     assert float(ps_week["money_left_present"]) == 1500.00
-    assert float(ps_week["borrowed_unpaid_amount"]) == 135.00
-    assert float(ps_week["money_left_with_borrowed"]) == 1635.00
+    assert float(ps_week["borrowed_unpaid_amount"]) == 0.00
+    assert float(ps_week["unpaid_borrowed_all_time"]) == 135.00
+    assert float(ps_week["unpaid_borrowed_outside_period"]) == 135.00
+
+    # For the week of 2026-01-15 containing the credit sale, it is reflected in that week's borrowed_unpaid_amount
+    ps_jan_week = client.get("/summary/period?period=week&date=2026-01-15", headers=admin_headers).json()
+    assert float(ps_jan_week["borrowed_unpaid_amount"]) == 135.00
 
     # 3. Admin marks the borrowed entry as Paid -> present money increases to 1635.00
     pay_res = client.post(f"/events/{b_id}/pay", headers=admin_headers)
@@ -578,8 +583,303 @@ def test_previous_day_32_crates_today_16_received_5_sold_equals_43_crates(client
     assert book["closing"] % 30 == 0
 
 
+def test_period_summary_daily_financials_and_named_expenses(client, admin_headers, staff_headers):
+    """Verifies that period summary returns day-by-day money breakdown, named expenses, and all financial transactions."""
+    d1 = date(2026, 8, 3)  # Monday
+    d2 = date(2026, 8, 4)  # Tuesday
+
+    # Set beginning money = 500.00
+    patch_res = client.patch(
+        "/settings",
+        json={"beginning_money": 500.00, "beginning_eggs": 100},
+        headers=admin_headers,
+    )
+    assert patch_res.status_code == 200
+
+    # Monday: Admin records a cash sale of 200.00 on business_date d1
+    client.post(
+        "/events",
+        json={"type": "sold", "eggs": 60, "crates": 2, "price_per_crate": 100.00, "business_date": str(d1)},
+        headers=admin_headers,
+    )
+    # Monday: Admin records a named expense "Transport to market" of 50.00 on business_date d1
+    client.post(
+        "/expenses",
+        json={"category": "other", "name": "Transport to market", "amount": 50.00, "business_date": str(d1)},
+        headers=admin_headers,
+    )
+
+    # Tuesday: Admin records a feed expense "5 bags layer mash" of 120.00
+    client.post(
+        "/expenses",
+        json={"category": "feed", "name": "5 bags layer mash", "quantity": "5 bags", "amount": 120.00, "business_date": str(d2)},
+        headers=admin_headers,
+    )
+
+    # Query week summary
+    res = client.get(f"/summary/period?period=week&date={d1}", headers=admin_headers)
+    assert res.status_code == 200
+    data = res.json()
+
+    # Verify daily financials has 7 days (Monday to Sunday)
+    assert len(data["daily_financials"]) == 7
+    d1_entry = next(d for d in data["daily_financials"] if d["date"] == str(d1))
+    assert d1_entry["day_name"] == "Monday"
+    assert float(d1_entry["opening_money"]) == 500.00
+    assert float(d1_entry["cash_revenue"]) == 200.00
+    assert float(d1_entry["other_expenses"]) == 50.00
+    assert float(d1_entry["closing_money"]) == 650.00
+    assert len(d1_entry["logged_by"]) > 0
+
+    d2_entry = next(d for d in data["daily_financials"] if d["date"] == str(d2))
+    assert d2_entry["day_name"] == "Tuesday"
+    assert float(d2_entry["opening_money"]) == 650.00
+    assert float(d2_entry["feed_expenses"]) == 120.00
+    assert float(d2_entry["closing_money"]) == 530.00
+
+    # Verify named expenses list
+    assert len(data["expenses"]) == 2
+    names = [e["name"] for e in data["expenses"]]
+    assert "Transport to market" in names
+    assert "5 bags layer mash" in names
+    for exp in data["expenses"]:
+        assert exp["created_by_name"] != ""
+
+    # Verify all financial transactions list
+    assert len(data["financial_transactions"]) == 3
 
 
+def test_user_scenario_1150_opening_230_sales_22_expense_equals_1358(client, admin_headers):
+    """Verifies that 1150 opening + 230 sale - 22 expense = 1358 money in hand, not 1380."""
+    d = date(2026, 9, 10)
 
+    # Set beginning baseline money = 1150.00
+    patch_res = client.patch(
+        "/settings",
+        json={"beginning_money": 1150.00},
+        headers=admin_headers,
+    )
+    assert patch_res.status_code == 200
+
+    # Receive eggs first so stock is not negative
+    client.post(
+        "/events",
+        json={"type": "received", "eggs": 300, "business_date": str(d)},
+        headers=admin_headers,
+    )
+
+    # Record sale of 230.00
+    s_res = client.post(
+        "/events",
+        json={"type": "sold", "eggs": 90, "amount": 230.00, "business_date": str(d)},
+        headers=admin_headers,
+    )
+    assert s_res.status_code == 201
+
+    # Record expense of 22.00
+    e_res = client.post(
+        "/expenses",
+        json={"category": "other", "name": "Disinfectant", "amount": 22.00, "business_date": str(d)},
+        headers=admin_headers,
+    )
+    assert e_res.status_code == 201
+
+    # Check period summary for that date
+    sum_res = client.get(f"/summary/period?period=day&date={d}", headers=admin_headers)
+    assert sum_res.status_code == 200
+    data = sum_res.json()
+
+    assert float(data["cash_revenue"]) == 230.00
+    assert float(data["other_expenses"]) == 22.00
+    assert float(data["total_expenses"]) == 22.00
+    assert float(data["money_left_present"]) == 1358.00
+
+    # Also check daily_financials entry
+    day_entry = data["daily_financials"][0]
+    assert float(day_entry["opening_money"]) == 1150.00
+    assert float(day_entry["cash_revenue"]) == 230.00
+    assert float(day_entry["other_expenses"]) == 22.00
+    assert float(day_entry["net_cash_flow"]) == 208.00
+    assert float(day_entry["closing_money"]) == 1358.00
+
+
+def test_period_summary_egg_stock_and_reconciliation(client, admin_headers):
+    """Verifies that period summary returns full egg stock reconciliation:
+    opening + gotten - sold + adjustment = closing (cracked eggs are recorded but not subtracted),
+    and returns daily_egg_stock entries for the week."""
+    # Week dates (Monday to Sunday)
+    mon = "2026-06-01"
+    tue = "2026-06-02"
+    wed = "2026-06-03"
+
+    # Reset beginning settings
+    client.patch("/settings", json={"beginning_eggs": 300, "target_present_money": "1000.00"}, headers=admin_headers)
+
+    # Mon: received 60 eggs (2 crates), sold 30 eggs (1 crate)
+    client.post("/events", json={"type": "received", "eggs": 60, "business_date": mon}, headers=admin_headers)
+    client.post("/events", json={"type": "sold", "eggs": 30, "amount": "45.00", "is_borrowed": False, "business_date": mon}, headers=admin_headers)
+
+    # Tue: cracked 5 eggs (recorded, does not reduce closing stock)
+    client.post("/events", json={"type": "cracked", "eggs": 5, "business_date": tue}, headers=admin_headers)
+
+    # Lock Tue with physical count mismatch: system closing is 300 + 60 - 30 = 330, counted = 325 (-5 adjustment)
+    client.post(
+        f"/closings/{tue}",
+        json={"counted_eggs": 325},
+        headers=admin_headers,
+    )
+
+    # Wed: received 30 eggs
+    client.post("/events", json={"type": "received", "eggs": 30, "business_date": wed}, headers=admin_headers)
+
+    # Fetch week summary
+    res = client.get(f"/summary/period?period=week&date={wed}", headers=admin_headers)
+    assert res.status_code == 200
+    data = res.json()
+
+    assert data["opening_eggs"] == 300
+    assert data["gotten_eggs"] == 90  # 60 + 30
+    assert data["sold_eggs"] == 30
+    assert data["cracked_eggs"] == 5
+    assert data["stock_adjustment_eggs"] == -5
+    # Closing = 300 + 90 - 30 + (-5) = 355
+    assert data["closing_eggs"] == 355
+    assert (
+        data["opening_eggs"]
+        + data["gotten_eggs"]
+        - data["sold_eggs"]
+        + data["stock_adjustment_eggs"]
+        == data["closing_eggs"]
+    )
+
+    # Check daily_egg_stock
+    assert len(data["daily_egg_stock"]) == 7  # 7 days of the week (Mon-Sun)
+    for row in data["daily_egg_stock"]:
+        assert (
+            row["opening_eggs"]
+            + row["received_eggs"]
+            - row["sold_eggs"]
+            + row["adjustment_eggs"]
+            == row["closing_eggs"]
+        )
+
+    tue_row = next(r for r in data["daily_egg_stock"] if r["date"] == tue)
+    assert tue_row["adjustment_eggs"] == -5
+    assert tue_row["locked"] is True
+
+
+def test_44c15e_opening_plus_17c6e_received_with_22_cracked_equals_61c21e(client, admin_headers):
+    """Verifies exact live scenario:
+    Opening = 44 crates + 15 eggs (1335 eggs)
+    Received = 17 crates + 6 eggs (516 eggs)
+    Cracked = 22 eggs (recorded for tracking only, not subtracted)
+    Closing Stock = 1335 + 516 = 1851 eggs = 61 crates + 21 eggs (NOT 60 crates + 29 eggs)."""
+    d = "2026-10-15"
+
+    # 1. Set beginning stock to 44 crates + 15 eggs = 1335 eggs
+    patch_res = client.patch(
+        "/settings",
+        json={"beginning_eggs": 44 * 30 + 15},
+        headers=admin_headers,
+    )
+    assert patch_res.status_code == 200
+    assert patch_res.json()["beginning_eggs"] == 1335
+
+    # 2. Receive 17 crates + 6 eggs = 516 eggs
+    rec_res = client.post(
+        "/events",
+        json={"type": "received", "eggs": 17 * 30 + 6, "business_date": d},
+        headers=admin_headers,
+    )
+    assert rec_res.status_code == 201
+    assert rec_res.json()["eggs"] == 516
+
+    # 3. Log 22 cracked eggs
+    crack_res = client.post(
+        "/events",
+        json={"type": "cracked", "eggs": 22, "business_date": d},
+        headers=admin_headers,
+    )
+    assert crack_res.status_code == 201
+    assert crack_res.json()["eggs"] == 22
+
+    # 4. Verify Daily Book (/summary)
+    book_res = client.get(f"/summary?date={d}", headers=admin_headers)
+    assert book_res.status_code == 200
+    book = book_res.json()
+
+    assert book["opening"] == 1335
+    assert book["gotten"] == 516
+    assert book["cracked"] == 22
+    assert book["sold"] == 0
+    assert book["closing"] == 1851
+    assert book["closing"] // 30 == 61
+    assert book["closing"] % 30 == 21
+
+    # 5. Verify Period Summary (/summary/period)
+    ps_res = client.get(f"/summary/period?period=week&date={d}", headers=admin_headers)
+    assert ps_res.status_code == 200
+    ps = ps_res.json()
+
+    assert ps["opening_eggs"] == 1335
+    assert ps["gotten_eggs"] == 516
+    assert ps["cracked_eggs"] == 22
+    assert ps["sold_eggs"] == 0
+    assert ps["closing_eggs"] == 1851
+    assert ps["closing_eggs"] // 30 == 61
+    assert ps["closing_eggs"] % 30 == 21
+
+
+def test_manual_entry_change_opening_day_eggs_and_present_available_eggs(client, admin_headers):
+    """Verifies that Admin can change either:
+    1. Opening Day Eggs (target_opening_eggs + target_opening_date)
+    2. Current Eggs Available in Stock (target_present_eggs)
+    even after prior days or events have been recorded."""
+    d1 = "2026-11-01"
+    d2 = "2026-11-02"
+
+    # Day 1: receive 300 eggs and lock Day 1 with counted_eggs = 300
+    client.post(
+        "/events",
+        json={"type": "received", "eggs": 300, "business_date": d1},
+        headers=admin_headers,
+    )
+    client.post(
+        f"/closings/{d1}",
+        json={"counted_eggs": 300},
+        headers=admin_headers,
+    )
+
+    # Day 2 starts at 300 opening, receives 516 eggs (17c + 6e)
+    client.post(
+        "/events",
+        json={"type": "received", "eggs": 516, "business_date": d2},
+        headers=admin_headers,
+    )
+
+    # 1. Admin changes Day 2's Opening Day Eggs to 1335 (44c + 15e)
+    res1 = client.patch(
+        "/settings",
+        json={"target_opening_eggs": 1335, "target_opening_date": d2},
+        headers=admin_headers,
+    )
+    assert res1.status_code == 200
+
+    book_d2 = client.get(f"/summary?date={d2}", headers=admin_headers).json()
+    assert book_d2["opening"] == 1335
+    assert book_d2["gotten"] == 516
+    assert book_d2["closing"] == 1851  # 61 crates + 21 eggs
+
+    # 2. Admin changes Current Eggs Available Now (In Stock) on Day 2 to 1500 (50 crates)
+    res2 = client.patch(
+        "/settings",
+        json={"target_present_eggs": 1500, "target_opening_date": d2},
+        headers=admin_headers,
+    )
+    assert res2.status_code == 200
+
+    book_d2_after = client.get(f"/summary?date={d2}", headers=admin_headers).json()
+    assert book_d2_after["closing"] == 1500
+    assert book_d2_after["opening"] == 1500 - 516  # 984 opening + 516 received = 1500 available now
 
 

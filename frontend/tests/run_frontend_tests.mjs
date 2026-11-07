@@ -68,6 +68,16 @@ test('Egg conversion: stock flow 32 opening + 16 received - 5 sold = 43 crates',
   assert.equal(formatEggs(remaining, 30), '43 crates + 0 eggs')
 })
 
+test('Egg conversion: 44c 15e opening + 17c 6e received = 61 crates + 21 eggs (cracked not subtracted)', () => {
+  const opening = toEggs(44, 15, 30) // 1335
+  const received = toEggs(17, 6, 30) // 516
+  const sold = 0
+  const closing = opening + received - sold // 1851
+  assert.equal(closing, 1851)
+  assert.deepEqual(fromEggs(closing, 30), { crates: 61, eggs: 21 })
+  assert.equal(formatEggs(closing, 30), '61 crates + 21 eggs')
+})
+
 // 2. Money Formatting & Parsing Tests
 const formatMoney = (amount) =>
   `GH₵ ${amount.toLocaleString('en-GH', {
@@ -234,6 +244,8 @@ test('Entries daily totals and Summary period filters + Borrowed settlement wiri
   const beginningSrc = fs.readFileSync(path.join(srcDir, 'pages/BeginningEntry.tsx'), 'utf8')
   assert.ok(beginningSrc.includes('Set Exact Cash on Hand Now'), 'ManualEntry must allow setting exact cash on hand')
   assert.ok(beginningSrc.includes('Beginning Eggs We Already Have'), 'ManualEntry must allow setting beginning eggs')
+  assert.ok(beginningSrc.includes('Set Eggs Available Now (In Stock)'), 'ManualEntry must allow setting eggs available now')
+  assert.ok(beginningSrc.includes('Set Opening Day Eggs (Start of Day)'), 'ManualEntry must allow setting opening day eggs')
   assert.ok(beginningSrc.includes('Log Borrowed (Yet to Be Paid)'), 'ManualEntry must allow logging borrowed eggs & money')
   assert.ok(beginningSrc.includes('Mark as Paid'), 'ManualEntry must allow changing borrowed status to Paid')
   assert.ok(sidebarSrc.includes("label: 'Manual Entry'"), 'Sidebar must include Manual Entry tab for Admin')

@@ -84,7 +84,7 @@ def create_event(
     exclude_from_stock = bool(payload.exclude_from_stock) if can_edit_all else False
 
     # Stock feasibility check for egg deductions (unless historical debt entry excluded from current physical stock)
-    if payload.type in ("sold", "cracked") and not exclude_from_stock:
+    if payload.type == "sold" and not exclude_from_stock:
         assert_stock_non_negative(db, target_date, -total_eggs)
 
     is_borrowed = bool(payload.is_borrowed) if payload.type == "sold" else False
@@ -262,7 +262,7 @@ def update_event(
 
     if new_eggs is not None:
         delta = new_eggs - event.eggs
-        if event.type in ("sold", "cracked"):
+        if event.type == "sold":
             assert_stock_non_negative(db, event.business_date, -delta)
         event.eggs = new_eggs
 

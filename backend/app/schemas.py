@@ -239,6 +239,61 @@ class DailyBookResponse(BaseModel):
     opening_anchor_eggs: Optional[int] = None
 
 
+class DailyFinancialSummaryItem(BaseModel):
+    date: date
+    day_name: str
+    opening_money: Decimal
+    cash_revenue: Decimal
+    borrowed_amount: Decimal
+    total_sales_value: Decimal
+    feed_expenses: Decimal
+    other_expenses: Decimal
+    total_expenses: Decimal
+    net_cash_flow: Decimal
+    closing_money: Decimal
+    logged_by: List[str] = Field(default_factory=list)
+    sales_count: int = 0
+    expenses_count: int = 0
+
+
+class DailyEggStockItem(BaseModel):
+    date: date
+    day_name: str
+    opening_eggs: int
+    received_eggs: int
+    sold_eggs: int
+    cracked_eggs: int
+    adjustment_eggs: int = 0  # physical count correction from a locked day (+/-)
+    closing_eggs: int
+    locked: bool = False
+
+
+class PeriodExpenseItem(BaseModel):
+    id: int
+    business_date: date
+    category: str
+    name: str
+    quantity: Optional[str] = None
+    amount: Decimal
+    created_by_name: str
+    created_at: datetime
+
+
+class FinancialTransactionItem(BaseModel):
+    id: str
+    kind: str  # "sale_cash", "sale_borrowed", "expense_feed", "expense_other", "settlement"
+    business_date: date
+    occurred_at: datetime
+    title: str
+    description: Optional[str] = None
+    amount: Decimal
+    is_cash_in: bool
+    user_name: str
+    crates: Optional[int] = None
+    eggs: Optional[int] = None
+    paid: bool = True
+
+
 class PeriodSummaryResponse(BaseModel):
     period: str
     start_date: date
@@ -259,6 +314,13 @@ class PeriodSummaryResponse(BaseModel):
     money_left_present: Decimal
     money_left_with_borrowed: Decimal
     borrowed_sales: List[EventResponse]
+    daily_financials: List[DailyFinancialSummaryItem] = Field(default_factory=list)
+    expenses: List[PeriodExpenseItem] = Field(default_factory=list)
+    financial_transactions: List[FinancialTransactionItem] = Field(default_factory=list)
+    stock_adjustment_eggs: int = 0
+    daily_egg_stock: List[DailyEggStockItem] = Field(default_factory=list)
+    unpaid_borrowed_all_time: Decimal = Decimal("0.00")
+    unpaid_borrowed_outside_period: Decimal = Decimal("0.00")
 
 
 class StaffSummaryResponse(BaseModel):
@@ -305,7 +367,7 @@ class UserResponse(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def populate_permissions(cls, data: Any):
+    def populate_permissions(cls, data):
         if hasattr(data, "role"):
             role = getattr(data, "role", "staff")
             raw_perms = getattr(data, "permissions", None)
@@ -359,6 +421,9 @@ class SettingsUpdate(BaseModel):
     eggs_per_crate: Optional[int] = Field(None, gt=0)
     currency: Optional[str] = Field(None, min_length=1)
     beginning_eggs: Optional[int] = Field(None, ge=0)
+    target_present_eggs: Optional[int] = Field(None, ge=0)
+    target_opening_eggs: Optional[int] = Field(None, ge=0)
+    target_opening_date: Optional[date] = None
     beginning_money: Optional[Decimal] = None
     target_present_money: Optional[Decimal] = None
 

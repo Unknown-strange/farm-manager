@@ -111,6 +111,7 @@ export function RecordSale() {
       queryClient.invalidateQueries({ queryKey: ['my-summary'] })
       queryClient.invalidateQueries({ queryKey: ['summary'] })
       queryClient.invalidateQueries({ queryKey: ['period-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-book'] })
     },
     onError: (err: unknown) => {
       const msg =
