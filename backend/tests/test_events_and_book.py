@@ -919,14 +919,18 @@ def test_crates_and_borrowed_expenses_lifecycle_and_cash_flow(client, admin_head
     # 3. Check Daily Book & Period Summary BEFORE marking borrowed expense as paid
     book1 = client.get(f"/summary?date={d}", headers=admin_headers).json()
     assert float(book1["crates"]) == 150.00
+    assert float(book1["feed"]) == 400.00  # Feed on credit is now included in feed!
+    assert float(book1["cash_spent"]) == 150.00  # Only paid cash deducted
     assert float(book1["borrowed_expenses_unpaid"]) == 400.00
     assert float(book1["borrowed_expenses_paid"]) == 0.00
-    assert float(book1["total_expenses"]) == 150.00  # Only paid expenses subtracted!
+    assert float(book1["total_expenses"]) == 550.00  # Total expenses incurred (150 + 400)
 
     ps1 = client.get(f"/summary/period?period=week&date={d}", headers=admin_headers).json()
     assert float(ps1["crates_expenses"]) == 150.00
+    assert float(ps1["feed_expenses"]) == 400.00
+    assert float(ps1["cash_spent"]) == 150.00
     assert float(ps1["borrowed_expenses_unpaid"]) == 400.00
-    assert float(ps1["total_expenses"]) == 150.00
+    assert float(ps1["total_expenses"]) == 550.00
     assert float(ps1["money_left_present"]) == 850.00  # 1000 - 150 = 850 (borrowed 400 NOT subtracted)
     assert len(ps1["borrowed_expenses"]) == 1
     assert ps1["borrowed_expenses"][0]["paid"] is False

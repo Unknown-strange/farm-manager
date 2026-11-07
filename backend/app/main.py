@@ -113,6 +113,30 @@ def _auto_initialize_database() -> None:
         Base.metadata.create_all(bind=engine)
         _ensure_borrowed_columns()
 
+        with SessionLocal() as db:
+            try:
+                db.execute(
+                    text(
+                        "UPDATE expenses SET category = 'feed', is_borrowed = TRUE "
+                        "WHERE category = 'borrowed' AND LOWER(name) LIKE '%feed%'"
+                    )
+                )
+                db.execute(
+                    text(
+                        "UPDATE expenses SET category = 'crates', is_borrowed = TRUE "
+                        "WHERE category = 'borrowed' AND LOWER(name) LIKE '%crate%'"
+                    )
+                )
+                db.execute(
+                    text(
+                        "UPDATE expenses SET category = 'other', is_borrowed = TRUE "
+                        "WHERE category = 'borrowed'"
+                    )
+                )
+                db.commit()
+            except Exception as exc:
+                logger.debug("Legacy expense category normalization skipped: %s", exc)
+
         if settings.SEED_ADMIN_USERNAME and settings.SEED_ADMIN_PASSWORD:
             with SessionLocal() as db:
                 admin_username = settings.SEED_ADMIN_USERNAME.strip().lower()

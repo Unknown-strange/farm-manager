@@ -133,7 +133,15 @@ class ExpenseCreate(BaseModel):
     def validate_name_by_category(self):
         if self.category == "borrowed":
             self.is_borrowed = True
-        if self.category in ("other", "borrowed") and not (self.name and self.name.strip()):
+            name_lower = (self.name or "").strip().lower()
+            if "feed" in name_lower:
+                self.category = "feed"
+            elif "crate" in name_lower:
+                self.category = "crates"
+            else:
+                self.category = "other"
+
+        if self.category == "other" and not (self.name and self.name.strip()):
             raise ValueError(f"Name is required when expense category is '{self.category}'")
         if self.category == "feed" and not (self.name and self.name.strip()):
             self.name = "Feed"
@@ -230,6 +238,13 @@ class DailyBookResponse(BaseModel):
     feed: Decimal
     crates: Decimal = Decimal("0.00")
     other: Decimal
+    feed_paid: Decimal = Decimal("0.00")
+    feed_borrowed: Decimal = Decimal("0.00")
+    crates_paid: Decimal = Decimal("0.00")
+    crates_borrowed: Decimal = Decimal("0.00")
+    other_paid: Decimal = Decimal("0.00")
+    other_borrowed: Decimal = Decimal("0.00")
+    cash_spent: Decimal = Decimal("0.00")
     borrowed_expenses_paid: Decimal = Decimal("0.00")
     borrowed_expenses_unpaid: Decimal = Decimal("0.00")
     unpaid_borrowed_expenses_all_time: Decimal = Decimal("0.00")
@@ -263,6 +278,13 @@ class DailyFinancialSummaryItem(BaseModel):
     feed_expenses: Decimal
     crates_expenses: Decimal = Decimal("0.00")
     other_expenses: Decimal
+    feed_paid: Decimal = Decimal("0.00")
+    feed_borrowed: Decimal = Decimal("0.00")
+    crates_paid: Decimal = Decimal("0.00")
+    crates_borrowed: Decimal = Decimal("0.00")
+    other_paid: Decimal = Decimal("0.00")
+    other_borrowed: Decimal = Decimal("0.00")
+    cash_spent: Decimal = Decimal("0.00")
     borrowed_expenses_paid: Decimal = Decimal("0.00")
     borrowed_expenses_unpaid: Decimal = Decimal("0.00")
     total_expenses: Decimal
@@ -332,6 +354,13 @@ class PeriodSummaryResponse(BaseModel):
     feed_expenses: Decimal
     crates_expenses: Decimal = Decimal("0.00")
     other_expenses: Decimal
+    feed_paid: Decimal = Decimal("0.00")
+    feed_borrowed: Decimal = Decimal("0.00")
+    crates_paid: Decimal = Decimal("0.00")
+    crates_borrowed: Decimal = Decimal("0.00")
+    other_paid: Decimal = Decimal("0.00")
+    other_borrowed: Decimal = Decimal("0.00")
+    cash_spent: Decimal = Decimal("0.00")
     borrowed_expenses_paid: Decimal = Decimal("0.00")
     borrowed_expenses_unpaid: Decimal = Decimal("0.00")
     unpaid_borrowed_expenses_all_time: Decimal = Decimal("0.00")

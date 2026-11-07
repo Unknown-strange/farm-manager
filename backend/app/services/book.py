@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException, status
-from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy import and_, case, func, not_, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import DailyClosing, EggEvent, Expense, Setting, User
@@ -322,64 +322,66 @@ def calculate_daily_book(db: Session, target_date: date) -> Dict[str, Any]:
     borrowed_amount = Decimal(str(event_row.borrowed_amount))
     total_sales_amount = revenue + borrowed_amount
 
-    # Expenses aggregates for target_date (unpaid borrowed expenses are NOT subtracted from money)
+    # Category mapping conditions supporting legacy 'borrowed' with smart name detection
+    is_feed = or_(
+        Expense.category == "feed",
+        and_(Expense.category == "borrowed", func.lower(Expense.name).like("%feed%")),
+    )
+    is_crates = or_(
+        Expense.category == "crates",
+        and_(Expense.category == "borrowed", func.lower(Expense.name).like("%crate%")),
+    )
+    is_other = or_(
+        Expense.category == "other",
+        and_(
+            Expense.category == "borrowed",
+            not_(func.lower(Expense.name).like("%feed%")),
+            not_(func.lower(Expense.name).like("%crate%")),
+        ),
+    )
+
+    # Expenses aggregates for target_date:
+    # Feed and Crates include ALL purchases (paid + borrowed). Cash spent only deducts paid.
     expenses_stmt = select(
-        func.coalesce(
-            func.sum(
-                case(
-                    (and_(Expense.category == "feed", Expense.paid.is_(True)), Expense.amount),
-                    else_=0,
-                )
-            ),
-            0,
-        ).label("feed"),
-        func.coalesce(
-            func.sum(
-                case(
-                    (and_(Expense.category == "crates", Expense.paid.is_(True)), Expense.amount),
-                    else_=0,
-                )
-            ),
-            0,
-        ).label("crates"),
-        func.coalesce(
-            func.sum(
-                case(
-                    (and_(Expense.category == "other", Expense.paid.is_(True)), Expense.amount),
-                    else_=0,
-                )
-            ),
-            0,
-        ).label("other"),
-        func.coalesce(
-            func.sum(
-                case(
-                    (and_(Expense.category == "borrowed", Expense.paid.is_(True)), Expense.amount),
-                    else_=0,
-                )
-            ),
-            0,
-        ).label("borrowed_expenses_paid"),
-        func.coalesce(
-            func.sum(
-                case(
-                    (Expense.paid.is_(False), Expense.amount),
-                    else_=0,
-                )
-            ),
-            0,
-        ).label("borrowed_expenses_unpaid"),
+        func.coalesce(func.sum(case((and_(is_feed, Expense.paid.is_(True)), Expense.amount), else_=0)), 0).label("feed_paid"),
+        func.coalesce(func.sum(case((and_(is_feed, Expense.paid.is_(False)), Expense.amount), else_=0)), 0).label("feed_borrowed"),
+        func.coalesce(func.sum(case((and_(is_crates, Expense.paid.is_(True)), Expense.amount), else_=0)), 0).label("crates_paid"),
+        func.coalesce(func.sum(case((and_(is_crates, Expense.paid.is_(False)), Expense.amount), else_=0)), 0).label("crates_borrowed"),
+        func.coalesce(func.sum(case((and_(is_other, Expense.paid.is_(True)), Expense.amount), else_=0)), 0).label("other_paid"),
+        func.coalesce(func.sum(case((and_(is_other, Expense.paid.is_(False)), Expense.amount), else_=0)), 0).label("other_borrowed"),
     ).where(
         Expense.business_date == target_date,
         Expense.voided.is_(False),
     )
     expense_row = db.execute(expenses_stmt).one()
-    feed = Decimal(str(expense_row.feed))
-    crates = Decimal(str(expense_row.crates))
-    other = Decimal(str(expense_row.other))
-    borrowed_expenses_paid = Decimal(str(expense_row.borrowed_expenses_paid))
-    borrowed_expenses_unpaid = Decimal(str(expense_row.borrowed_expenses_unpaid))
-    total_expenses = feed + crates + other + borrowed_expenses_paid
+    feed_paid = Decimal(str(expense_row.feed_paid))
+    feed_borrowed = Decimal(str(expense_row.feed_borrowed))
+    feed = feed_paid + feed_borrowed
+
+    crates_paid = Decimal(str(expense_row.crates_paid))
+    crates_borrowed = Decimal(str(expense_row.crates_borrowed))
+    crates = crates_paid + crates_borrowed
+
+    other_paid = Decimal(str(expense_row.other_paid))
+    other_borrowed = Decimal(str(expense_row.other_borrowed))
+    other = other_paid + other_borrowed
+
+    total_expenses = feed + crates + other
+    cash_spent = feed_paid + crates_paid + other_paid
+    borrowed_expenses_unpaid = feed_borrowed + crates_borrowed + other_borrowed
+    borrowed_expenses_paid = Decimal(
+        str(
+            db.scalar(
+                select(func.coalesce(func.sum(Expense.amount), 0)).where(
+                    Expense.business_date == target_date,
+                    Expense.voided.is_(False),
+                    Expense.is_borrowed.is_(True),
+                    Expense.paid.is_(True),
+                )
+            )
+            or 0
+        )
+    )
 
     unpaid_borrowed_expenses_all_time = Decimal(
         str(
@@ -501,6 +503,13 @@ def calculate_daily_book(db: Session, target_date: date) -> Dict[str, Any]:
         "feed": feed,
         "crates": crates,
         "other": other,
+        "feed_paid": feed_paid,
+        "feed_borrowed": feed_borrowed,
+        "crates_paid": crates_paid,
+        "crates_borrowed": crates_borrowed,
+        "other_paid": other_paid,
+        "other_borrowed": other_borrowed,
+        "cash_spent": cash_spent,
         "borrowed_expenses_paid": borrowed_expenses_paid,
         "borrowed_expenses_unpaid": borrowed_expenses_unpaid,
         "unpaid_borrowed_expenses_all_time": unpaid_borrowed_expenses_all_time,
@@ -619,64 +628,66 @@ def calculate_period_summary(
     borrowed_paid_amount = Decimal(str(ev_row.borrowed_paid_amount))
     total_sales_amount = cash_revenue + borrowed_unpaid_amount
 
+    # Category mapping conditions supporting legacy 'borrowed' with smart name detection
+    is_feed = or_(
+        Expense.category == "feed",
+        and_(Expense.category == "borrowed", func.lower(Expense.name).like("%feed%")),
+    )
+    is_crates = or_(
+        Expense.category == "crates",
+        and_(Expense.category == "borrowed", func.lower(Expense.name).like("%crate%")),
+    )
+    is_other = or_(
+        Expense.category == "other",
+        and_(
+            Expense.category == "borrowed",
+            not_(func.lower(Expense.name).like("%feed%")),
+            not_(func.lower(Expense.name).like("%crate%")),
+        ),
+    )
+
     expenses_stmt = select(
-        func.coalesce(
-            func.sum(
-                case(
-                    (and_(Expense.category == "feed", Expense.paid.is_(True)), Expense.amount),
-                    else_=0,
-                )
-            ),
-            0,
-        ).label("feed_expenses"),
-        func.coalesce(
-            func.sum(
-                case(
-                    (and_(Expense.category == "crates", Expense.paid.is_(True)), Expense.amount),
-                    else_=0,
-                )
-            ),
-            0,
-        ).label("crates_expenses"),
-        func.coalesce(
-            func.sum(
-                case(
-                    (and_(Expense.category == "other", Expense.paid.is_(True)), Expense.amount),
-                    else_=0,
-                )
-            ),
-            0,
-        ).label("other_expenses"),
-        func.coalesce(
-            func.sum(
-                case(
-                    (and_(Expense.category == "borrowed", Expense.paid.is_(True)), Expense.amount),
-                    else_=0,
-                )
-            ),
-            0,
-        ).label("borrowed_expenses_paid"),
-        func.coalesce(
-            func.sum(
-                case(
-                    (Expense.paid.is_(False), Expense.amount),
-                    else_=0,
-                )
-            ),
-            0,
-        ).label("borrowed_expenses_unpaid"),
+        func.coalesce(func.sum(case((and_(is_feed, Expense.paid.is_(True)), Expense.amount), else_=0)), 0).label("feed_paid"),
+        func.coalesce(func.sum(case((and_(is_feed, Expense.paid.is_(False)), Expense.amount), else_=0)), 0).label("feed_borrowed"),
+        func.coalesce(func.sum(case((and_(is_crates, Expense.paid.is_(True)), Expense.amount), else_=0)), 0).label("crates_paid"),
+        func.coalesce(func.sum(case((and_(is_crates, Expense.paid.is_(False)), Expense.amount), else_=0)), 0).label("crates_borrowed"),
+        func.coalesce(func.sum(case((and_(is_other, Expense.paid.is_(True)), Expense.amount), else_=0)), 0).label("other_paid"),
+        func.coalesce(func.sum(case((and_(is_other, Expense.paid.is_(False)), Expense.amount), else_=0)), 0).label("other_borrowed"),
     ).where(
         Expense.business_date >= start_date,
         Expense.business_date <= end_date,
         Expense.voided.is_(False),
     )
     exp_row = db.execute(expenses_stmt).one()
-    feed_expenses = Decimal(str(exp_row.feed_expenses))
-    crates_expenses = Decimal(str(exp_row.crates_expenses))
-    other_expenses = Decimal(str(exp_row.other_expenses))
-    borrowed_expenses_paid = Decimal(str(exp_row.borrowed_expenses_paid))
-    borrowed_expenses_unpaid = Decimal(str(exp_row.borrowed_expenses_unpaid))
-    total_expenses = feed_expenses + crates_expenses + other_expenses + borrowed_expenses_paid
+    feed_paid = Decimal(str(exp_row.feed_paid))
+    feed_borrowed = Decimal(str(exp_row.feed_borrowed))
+    feed_expenses = feed_paid + feed_borrowed
+
+    crates_paid = Decimal(str(exp_row.crates_paid))
+    crates_borrowed = Decimal(str(exp_row.crates_borrowed))
+    crates_expenses = crates_paid + crates_borrowed
+
+    other_paid = Decimal(str(exp_row.other_paid))
+    other_borrowed = Decimal(str(exp_row.other_borrowed))
+    other_expenses = other_paid + other_borrowed
+
+    total_expenses = feed_expenses + crates_expenses + other_expenses
+    cash_spent = feed_paid + crates_paid + other_paid
+    borrowed_expenses_unpaid = feed_borrowed + crates_borrowed + other_borrowed
+    borrowed_expenses_paid = Decimal(
+        str(
+            db.scalar(
+                select(func.coalesce(func.sum(Expense.amount), 0)).where(
+                    Expense.business_date >= start_date,
+                    Expense.business_date <= end_date,
+                    Expense.voided.is_(False),
+                    Expense.is_borrowed.is_(True),
+                    Expense.paid.is_(True),
+                )
+            )
+            or 0
+        )
+    )
 
     unpaid_borrowed_expenses_all_time = Decimal(
         str(
@@ -899,23 +910,57 @@ def calculate_period_summary(
         if bd not in daily_exps:
             daily_exps[bd] = {
                 "feed": Decimal("0.00"),
+                "feed_paid": Decimal("0.00"),
+                "feed_borrowed": Decimal("0.00"),
                 "crates": Decimal("0.00"),
+                "crates_paid": Decimal("0.00"),
+                "crates_borrowed": Decimal("0.00"),
                 "other": Decimal("0.00"),
+                "other_paid": Decimal("0.00"),
+                "other_borrowed": Decimal("0.00"),
+                "cash_spent": Decimal("0.00"),
                 "borrowed_paid": Decimal("0.00"),
                 "borrowed_unpaid": Decimal("0.00"),
                 "count": 0,
                 "users": set(),
             }
-        if not r.Expense.paid:
-            daily_exps[bd]["borrowed_unpaid"] += Decimal(str(r.Expense.amount))
-        elif r.Expense.category == "feed":
-            daily_exps[bd]["feed"] += Decimal(str(r.Expense.amount))
-        elif r.Expense.category == "crates":
-            daily_exps[bd]["crates"] += Decimal(str(r.Expense.amount))
-        elif r.Expense.category == "borrowed":
-            daily_exps[bd]["borrowed_paid"] += Decimal(str(r.Expense.amount))
+        cat = r.Expense.category
+        name_lower = (r.Expense.name or "").lower()
+        if cat == "borrowed":
+            if "feed" in name_lower:
+                cat = "feed"
+            elif "crate" in name_lower:
+                cat = "crates"
+            else:
+                cat = "other"
+
+        amt = Decimal(str(r.Expense.amount))
+        if cat == "feed":
+            daily_exps[bd]["feed"] += amt
+            if r.Expense.paid:
+                daily_exps[bd]["feed_paid"] += amt
+            else:
+                daily_exps[bd]["feed_borrowed"] += amt
+        elif cat == "crates":
+            daily_exps[bd]["crates"] += amt
+            if r.Expense.paid:
+                daily_exps[bd]["crates_paid"] += amt
+            else:
+                daily_exps[bd]["crates_borrowed"] += amt
         else:
-            daily_exps[bd]["other"] += Decimal(str(r.Expense.amount))
+            daily_exps[bd]["other"] += amt
+            if r.Expense.paid:
+                daily_exps[bd]["other_paid"] += amt
+            else:
+                daily_exps[bd]["other_borrowed"] += amt
+
+        if r.Expense.paid:
+            daily_exps[bd]["cash_spent"] += amt
+            if r.Expense.is_borrowed:
+                daily_exps[bd]["borrowed_paid"] += amt
+        else:
+            daily_exps[bd]["borrowed_unpaid"] += amt
+
         daily_exps[bd]["count"] += 1
         if r.creator_name:
             daily_exps[bd]["users"].add(r.creator_name)
@@ -998,8 +1043,15 @@ def calculate_period_summary(
                 cur_date,
                 {
                     "feed": Decimal("0.00"),
+                    "feed_paid": Decimal("0.00"),
+                    "feed_borrowed": Decimal("0.00"),
                     "crates": Decimal("0.00"),
+                    "crates_paid": Decimal("0.00"),
+                    "crates_borrowed": Decimal("0.00"),
                     "other": Decimal("0.00"),
+                    "other_paid": Decimal("0.00"),
+                    "other_borrowed": Decimal("0.00"),
+                    "cash_spent": Decimal("0.00"),
                     "borrowed_paid": Decimal("0.00"),
                     "borrowed_unpaid": Decimal("0.00"),
                     "count": 0,
@@ -1017,13 +1069,14 @@ def calculate_period_summary(
             day_other = e_info["other"]
             day_borrowed_exp_paid = e_info["borrowed_paid"]
             day_borrowed_exp_unpaid = e_info["borrowed_unpaid"]
-            day_total_exp = (
+            day_cash_spent = (
                 Decimal(str(closing_rec.actual_expenses))
                 if (closing_rec and closing_rec.actual_expenses is not None)
-                else (day_feed + day_crates + day_other + day_borrowed_exp_paid)
+                else e_info["cash_spent"]
             )
+            day_total_exp = day_feed + day_crates + day_other
 
-            day_net_flow = day_cash_rev - day_total_exp
+            day_net_flow = day_cash_rev - day_cash_spent
             closing_cash = opening_cash + day_net_flow
             running_cash = closing_cash
             prev_date = cur_date
@@ -1041,6 +1094,13 @@ def calculate_period_summary(
                 "feed_expenses": day_feed,
                 "crates_expenses": day_crates,
                 "other_expenses": day_other,
+                "feed_paid": e_info["feed_paid"],
+                "feed_borrowed": e_info["feed_borrowed"],
+                "crates_paid": e_info["crates_paid"],
+                "crates_borrowed": e_info["crates_borrowed"],
+                "other_paid": e_info["other_paid"],
+                "other_borrowed": e_info["other_borrowed"],
+                "cash_spent": day_cash_spent,
                 "borrowed_expenses_paid": day_borrowed_exp_paid,
                 "borrowed_expenses_unpaid": day_borrowed_exp_unpaid,
                 "total_expenses": day_total_exp,
@@ -1094,6 +1154,13 @@ def calculate_period_summary(
         "feed_expenses": feed_expenses,
         "crates_expenses": crates_expenses,
         "other_expenses": other_expenses,
+        "feed_paid": feed_paid,
+        "feed_borrowed": feed_borrowed,
+        "crates_paid": crates_paid,
+        "crates_borrowed": crates_borrowed,
+        "other_paid": other_paid,
+        "other_borrowed": other_borrowed,
+        "cash_spent": cash_spent,
         "borrowed_expenses_paid": borrowed_expenses_paid,
         "borrowed_expenses_unpaid": borrowed_expenses_unpaid,
         "unpaid_borrowed_expenses_all_time": unpaid_borrowed_expenses_all_time,

@@ -298,7 +298,7 @@ test('Entries daily totals and Summary period filters + Borrowed settlement wiri
 
   const addExpenseSrc = fs.readFileSync(path.join(srcDir, 'pages/AddExpense.tsx'), 'utf8')
   assert.ok(addExpenseSrc.includes('Crates'), 'AddExpense must support Crates category')
-  assert.ok(addExpenseSrc.includes('Borrowed Expense'), 'AddExpense must support Borrowed Expense category')
+  assert.ok(addExpenseSrc.includes('Borrowed Feed'), 'AddExpense must support Borrowed sub-category')
   assert.ok(endOfDaySrc.includes('Borrowed Expenses Management (Admin Only)'), 'Summary must include Borrowed Expenses Management section')
   assert.ok(endOfDaySrc.includes('Crates Expenses'), 'Summary must include Crates Expenses breakdown')
 })
@@ -316,6 +316,28 @@ test('Backend Health check on website opening and extended login timeout (5 mins
 
   const mainSrc = fs.readFileSync(path.join(srcDir, 'main.tsx'), 'utf8')
   assert.ok(mainSrc.includes('api/health'), 'main.tsx must import health module so health check starts on website load')
+})
+
+test('Expense sub-categories and accurate Feed/Crate totals architecture', () => {
+  const addExpenseSrc = fs.readFileSync(path.join(srcDir, 'pages/AddExpense.tsx'), 'utf8')
+  assert.ok(addExpenseSrc.includes('Paid Feed'), 'AddExpense must support Paid Feed subcategory')
+  assert.ok(addExpenseSrc.includes('Borrowed Feed'), 'AddExpense must support Borrowed Feed subcategory')
+  assert.ok(addExpenseSrc.includes('Paid Crates'), 'AddExpense must support Paid Crates subcategory')
+  assert.ok(addExpenseSrc.includes('Borrowed Crates'), 'AddExpense must support Borrowed Crates subcategory')
+
+  const expensesSrc = fs.readFileSync(path.join(srcDir, 'pages/Expenses.tsx'), 'utf8')
+  assert.ok(expensesSrc.includes('feedPaidTotal'), 'Expenses must compute feedPaidTotal')
+  assert.ok(expensesSrc.includes('feedBorrowedTotal'), 'Expenses must compute feedBorrowedTotal')
+  assert.ok(expensesSrc.includes('cratesPaidTotal'), 'Expenses must compute cratesPaidTotal')
+  assert.ok(expensesSrc.includes('cratesBorrowedTotal'), 'Expenses must compute cratesBorrowedTotal')
+  assert.ok(expensesSrc.includes('grandTotalSpent'), 'Expenses must compute grandTotalSpent cash')
+
+  const endOfDaySrc = fs.readFileSync(path.join(srcDir, 'pages/EndOfDay.tsx'), 'utf8')
+  assert.ok(endOfDaySrc.includes('feedPaid'), 'EndOfDay must display feedPaid')
+  assert.ok(endOfDaySrc.includes('feedBorrowed'), 'EndOfDay must display feedBorrowed')
+  assert.ok(endOfDaySrc.includes('cratesPaid'), 'EndOfDay must display cratesPaid')
+  assert.ok(endOfDaySrc.includes('cratesBorrowed'), 'EndOfDay must display cratesBorrowed')
+  assert.ok(endOfDaySrc.includes('Total Incurred'), 'EndOfDay must show Total Incurred vs Cash Deducted')
 })
 
 console.log(`\n✅ All ${passed} frontend system instance checks passed!`)

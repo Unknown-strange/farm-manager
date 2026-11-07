@@ -150,9 +150,32 @@ export function EndOfDay() {
   const moneyLeftPresent = Number(periodSummary?.money_left_present ?? 0)
   const moneyLeftWithBorrowed = Number((moneyLeftPresent + borrowedUnpaid).toFixed(2))
 
-  const feedExpenseItems = (periodSummary?.expenses ?? []).filter((e) => e.category === 'feed' && e.paid !== false)
-  const cratesExpenseItems = (periodSummary?.expenses ?? []).filter((e) => e.category === 'crates' && e.paid !== false)
-  const otherExpenseItems = (periodSummary?.expenses ?? []).filter((e) => e.category === 'other' && e.paid !== false)
+  const getNormExpCat = (e: { category: string; name?: string }): 'feed' | 'crates' | 'other' => {
+    if (e.category === 'feed') return 'feed'
+    if (e.category === 'crates') return 'crates'
+    if (e.category === 'borrowed') {
+      const nl = (e.name || '').toLowerCase()
+      if (nl.includes('feed')) return 'feed'
+      if (nl.includes('crate')) return 'crates'
+    }
+    return 'other'
+  }
+
+  const allPeriodExpenses = periodSummary?.expenses ?? []
+  const feedExpenseItems = allPeriodExpenses.filter((e) => getNormExpCat(e) === 'feed')
+  const cratesExpenseItems = allPeriodExpenses.filter((e) => getNormExpCat(e) === 'crates')
+  const otherExpenseItems = allPeriodExpenses.filter((e) => getNormExpCat(e) === 'other')
+
+  const feedPaid = Number(periodSummary?.feed_paid ?? feedExpenseItems.filter((e) => e.paid !== false).reduce((s, e) => s + Number(e.amount), 0))
+  const feedBorrowed = Number(periodSummary?.feed_borrowed ?? feedExpenseItems.filter((e) => e.paid === false).reduce((s, e) => s + Number(e.amount), 0))
+
+  const cratesPaid = Number(periodSummary?.crates_paid ?? cratesExpenseItems.filter((e) => e.paid !== false).reduce((s, e) => s + Number(e.amount), 0))
+  const cratesBorrowed = Number(periodSummary?.crates_borrowed ?? cratesExpenseItems.filter((e) => e.paid === false).reduce((s, e) => s + Number(e.amount), 0))
+
+  const otherPaid = Number(periodSummary?.other_paid ?? otherExpenseItems.filter((e) => e.paid !== false).reduce((s, e) => s + Number(e.amount), 0))
+  const otherBorrowed = Number(periodSummary?.other_borrowed ?? otherExpenseItems.filter((e) => e.paid === false).reduce((s, e) => s + Number(e.amount), 0))
+
+  const cashSpent = Number(periodSummary?.cash_spent ?? (feedPaid + cratesPaid + otherPaid))
   const unpaidBorrowedOutside = Number(periodSummary?.unpaid_borrowed_outside_period ?? 0)
   const stockAdjustmentEggs = Number(periodSummary?.stock_adjustment_eggs ?? 0)
 
@@ -178,11 +201,11 @@ export function EndOfDay() {
   const feedBagsTotal = feedExpenseItems.reduce((acc, it) => acc + parseQty(it.quantity), 0)
   const cratesUnitsTotal = cratesExpenseItems.reduce((acc, it) => acc + parseQty(it.quantity), 0)
 
-  const displayedExpenses = (periodSummary?.expenses ?? []).filter((exp) => {
-    if (expenseFilterTab === 'feed') return exp.category === 'feed'
-    if (expenseFilterTab === 'crates') return exp.category === 'crates'
-    if (expenseFilterTab === 'other') return exp.category === 'other'
-    if (expenseFilterTab === 'borrowed') return exp.category === 'borrowed' || exp.is_borrowed
+  const displayedExpenses = allPeriodExpenses.filter((exp) => {
+    if (expenseFilterTab === 'feed') return getNormExpCat(exp) === 'feed'
+    if (expenseFilterTab === 'crates') return getNormExpCat(exp) === 'crates'
+    if (expenseFilterTab === 'other') return getNormExpCat(exp) === 'other'
+    if (expenseFilterTab === 'borrowed') return exp.category === 'borrowed' || exp.is_borrowed || exp.paid === false
     return true
   })
 
@@ -346,7 +369,7 @@ export function EndOfDay() {
                         <strong className="text-ink font-semibold">
                           {feedBagsTotal > 0 ? `${feedBagsTotal} bag${feedBagsTotal !== 1 ? 's' : ''}` : '0 bags'}
                         </strong>{' '}
-                        · {feedExpenseItems.length} purchase{feedExpenseItems.length !== 1 ? 's' : ''}
+                        · Paid: {formatMoney(feedPaid)} · Borrowed: {formatMoney(feedBorrowed)}
                       </span>
                     }
                   />
@@ -362,7 +385,7 @@ export function EndOfDay() {
                         <strong className="text-ink font-semibold">
                           {cratesUnitsTotal > 0 ? `${cratesUnitsTotal} crate${cratesUnitsTotal !== 1 ? 's' : ''}` : '0 crates'}
                         </strong>{' '}
-                        · {cratesExpenseItems.length} purchase{cratesExpenseItems.length !== 1 ? 's' : ''}
+                        · Paid: {formatMoney(cratesPaid)} · Borrowed: {formatMoney(cratesBorrowed)}
                       </span>
                     }
                   />
@@ -378,7 +401,7 @@ export function EndOfDay() {
                         <strong className="text-ink font-semibold">
                           {otherExpenseItems.length} item{otherExpenseItems.length !== 1 ? 's' : ''}
                         </strong>{' '}
-                        recorded
+                        · Paid: {formatMoney(otherPaid)} · Borrowed: {formatMoney(otherBorrowed)}
                       </span>
                     }
                   />
@@ -391,7 +414,7 @@ export function EndOfDay() {
                     value={`− ${formatMoney(totalExpenses)}`}
                     helper={
                       <span>
-                        Sum of feed, crates &amp; other expenses
+                        Total Incurred: {formatMoney(totalExpenses)} · Cash Deducted: {formatMoney(cashSpent)}
                       </span>
                     }
                   />
@@ -408,11 +431,11 @@ export function EndOfDay() {
                     <div className="flex flex-wrap items-center gap-1.5">
                       {(
                         [
-                          { key: 'all', label: `All (${(periodSummary.expenses ?? []).length})` },
+                          { key: 'all', label: `All (${allPeriodExpenses.length})` },
                           { key: 'feed', label: `Feed (${feedExpenseItems.length})` },
                           { key: 'crates', label: `Crates (${cratesExpenseItems.length})` },
                           { key: 'other', label: `Other (${otherExpenseItems.length})` },
-                          { key: 'borrowed', label: `Borrowed (${allBorrowedExpenses.length})` },
+                          { key: 'borrowed', label: `Borrowed (${allPeriodExpenses.filter((e) => e.paid === false).length})` },
                         ] as const
                       ).map((tab) => (
                         <button
@@ -455,25 +478,32 @@ export function EndOfDay() {
                                 {formatDate(exp.business_date)}
                               </td>
                               <td className="py-3 px-6 whitespace-nowrap">
-                                <span
-                                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
-                                    exp.category === 'feed'
-                                      ? 'bg-brand/10 text-brand border border-brand/20'
-                                      : exp.category === 'crates'
-                                        ? 'bg-intake-bg text-intake border border-intake/30'
-                                        : exp.category === 'borrowed' || exp.is_borrowed
-                                          ? 'bg-warn-bg text-warn border border-warn/30'
+                                <div className="flex items-center gap-1.5">
+                                  <span
+                                    className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+                                      getNormExpCat(exp) === 'feed'
+                                        ? 'bg-brand/10 text-brand border border-brand/20'
+                                        : getNormExpCat(exp) === 'crates'
+                                          ? 'bg-intake-bg text-intake border border-intake/30'
                                           : 'bg-canvas text-ink border border-border'
-                                  }`}
-                                >
-                                  {exp.category === 'feed'
-                                    ? 'Feed'
-                                    : exp.category === 'crates'
-                                      ? 'Crates'
-                                      : exp.category === 'borrowed' || exp.is_borrowed
-                                        ? 'Borrowed'
+                                    }`}
+                                  >
+                                    {getNormExpCat(exp) === 'feed'
+                                      ? 'Feed'
+                                      : getNormExpCat(exp) === 'crates'
+                                        ? 'Crates'
                                         : 'Other'}
-                                </span>
+                                  </span>
+                                  {exp.paid === false ? (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-warn-bg text-warn border border-warn/30">
+                                      Borrowed (Unpaid)
+                                    </span>
+                                  ) : (exp.is_borrowed || exp.category === 'borrowed') ? (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-success-bg text-success border border-success/30">
+                                      Paid Borrowed
+                                    </span>
+                                  ) : null}
+                                </div>
                               </td>
                               <td className="py-3 px-6 font-semibold text-ink">
                                 {exp.name}

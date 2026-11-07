@@ -23,6 +23,13 @@ export interface DailyBookSummary {
   feed: string | number
   crates?: string | number
   other: string | number
+  feed_paid?: string | number
+  feed_borrowed?: string | number
+  crates_paid?: string | number
+  crates_borrowed?: string | number
+  other_paid?: string | number
+  other_borrowed?: string | number
+  cash_spent?: string | number
   borrowed_expenses_paid?: string | number
   borrowed_expenses_unpaid?: string | number
   unpaid_borrowed_expenses_all_time?: string | number
@@ -58,6 +65,13 @@ export interface DailyFinancialSummaryItem {
   feed_expenses: string | number
   crates_expenses?: string | number
   other_expenses: string | number
+  feed_paid?: string | number
+  feed_borrowed?: string | number
+  crates_paid?: string | number
+  crates_borrowed?: string | number
+  other_paid?: string | number
+  other_borrowed?: string | number
+  cash_spent?: string | number
   borrowed_expenses_paid?: string | number
   borrowed_expenses_unpaid?: string | number
   total_expenses: string | number
@@ -137,6 +151,13 @@ export interface PeriodSummary {
   feed_expenses: string | number
   crates_expenses?: string | number
   other_expenses: string | number
+  feed_paid?: string | number
+  feed_borrowed?: string | number
+  crates_paid?: string | number
+  crates_borrowed?: string | number
+  other_paid?: string | number
+  other_borrowed?: string | number
+  cash_spent?: string | number
   borrowed_expenses_paid?: string | number
   borrowed_expenses_unpaid?: string | number
   unpaid_borrowed_expenses_all_time?: string | number

@@ -5,7 +5,7 @@ import { Receipt, CheckCircle, RotateCcw, Loader2, ArrowLeft } from 'lucide-reac
 import { TopBar } from '@/components/layout/TopBar'
 import { CurrencyInput } from '@/components/CurrencyInput'
 import { useToast } from '@/components/Toast'
-import { expensesApi, type ExpenseCategory } from '@/api/expenses'
+import { expensesApi } from '@/api/expenses'
 import { todayString, formatDate } from '@/lib/dates'
 
 interface UndoState {
@@ -20,7 +20,8 @@ export function AddExpense() {
   const queryClient = useQueryClient()
   const today = todayString()
 
-  const [category, setCategory] = useState<ExpenseCategory>('feed')
+  const [category, setCategory] = useState<'feed' | 'crates' | 'other'>('feed')
+  const [isBorrowed, setIsBorrowed] = useState<boolean>(false)
   const [name, setName] = useState('')
   const [quantity, setQuantity] = useState('')
   const [amount, setAmount] = useState('')
@@ -53,18 +54,20 @@ export function AddExpense() {
               : name.trim(),
         quantity: quantity.trim() || undefined,
         amount: parseFloat(amount),
-        is_borrowed: category === 'borrowed',
+        is_borrowed: isBorrowed,
       }),
     onSuccess: (res) => {
+      const catLabel = category === 'feed' ? 'Feed' : category === 'crates' ? 'Crates' : 'Expense'
       toast(
-        category === 'borrowed'
-          ? 'Borrowed expense saved (not deducted until marked as paid in Summary)'
-          : 'Expense saved',
+        isBorrowed
+          ? `Borrowed ${catLabel} saved (adds to ${catLabel} total, pending settlement in Summary)`
+          : `${catLabel} expense saved and deducted from cash`,
         'success',
       )
       setName('')
       setQuantity('')
       setAmount('')
+      setIsBorrowed(false)
       setErrors({})
       const undoUntilMs = new Date(res.undo_until).getTime()
       const remainingSec = Math.max(1, Math.ceil((undoUntilMs - Date.now()) / 1000))
@@ -104,8 +107,8 @@ export function AddExpense() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const newErrors: { name?: string; amount?: string } = {}
-    if ((category === 'other' || category === 'borrowed') && !name.trim()) {
-      newErrors.name = `Item name is required for ${category === 'borrowed' ? 'Borrowed' : 'Other'} expenses`
+    if (category === 'other' && !name.trim()) {
+      newErrors.name = 'Item name is required for Other expenses'
     }
     const parsedAmount = parseFloat(amount)
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -180,17 +183,17 @@ export function AddExpense() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5 sm:space-y-6" noValidate>
-              {/* Segmented Category Control */}
+              {/* 1. Main Category Control */}
               <div>
-                <label className="block text-label-sm text-ink mb-2">Expense Category</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1 bg-canvas rounded-md border border-border">
+                <label className="block text-label-sm text-ink mb-2">1. Expense Category</label>
+                <div className="grid grid-cols-3 gap-2 p-1 bg-canvas rounded-md border border-border">
                   <button
                     type="button"
                     onClick={() => {
                       setCategory('feed')
                       setErrors((p) => ({ ...p, name: undefined }))
                     }}
-                    className={`h-10 rounded text-label-sm transition-all ${
+                    className={`h-11 rounded text-label-sm font-semibold transition-all ${
                       category === 'feed'
                         ? 'bg-card text-brand shadow-card border border-border'
                         : 'text-muted hover:text-ink'
@@ -204,18 +207,18 @@ export function AddExpense() {
                       setCategory('crates')
                       setErrors((p) => ({ ...p, name: undefined }))
                     }}
-                    className={`h-10 rounded text-label-sm transition-all ${
+                    className={`h-11 rounded text-label-sm font-semibold transition-all ${
                       category === 'crates'
                         ? 'bg-card text-brand shadow-card border border-border'
                         : 'text-muted hover:text-ink'
                     }`}
                   >
-                    Crates
+                    Crates Expense
                   </button>
                   <button
                     type="button"
                     onClick={() => setCategory('other')}
-                    className={`h-10 rounded text-label-sm transition-all ${
+                    className={`h-11 rounded text-label-sm font-semibold transition-all ${
                       category === 'other'
                         ? 'bg-card text-brand shadow-card border border-border'
                         : 'text-muted hover:text-ink'
@@ -223,52 +226,78 @@ export function AddExpense() {
                   >
                     Other Expense
                   </button>
+                </div>
+              </div>
+
+              {/* 2. Sub-Category / Payment Status Control */}
+              <div>
+                <label className="block text-label-sm text-ink mb-1.5">
+                  2. Sub-Category / Payment Status
+                </label>
+                <div className="grid grid-cols-2 gap-2 p-1 bg-canvas rounded-md border border-border">
                   <button
                     type="button"
-                    onClick={() => setCategory('borrowed')}
-                    className={`h-10 rounded text-label-sm transition-all ${
-                      category === 'borrowed'
-                        ? 'bg-warn text-white shadow-card border border-warn'
-                        : 'text-warn hover:text-ink'
+                    onClick={() => setIsBorrowed(false)}
+                    className={`py-2 px-3 rounded text-xs font-semibold border text-center transition-all ${
+                      !isBorrowed
+                        ? 'bg-success text-white border-success shadow-sm'
+                        : 'bg-card text-muted border-border hover:text-ink'
                     }`}
                   >
-                    Borrowed Expense
+                    {category === 'feed' ? 'Paid Feed' : category === 'crates' ? 'Paid Crates' : 'Paid Expense'} (Paid Now)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsBorrowed(true)}
+                    className={`py-2 px-3 rounded text-xs font-semibold border text-center transition-all ${
+                      isBorrowed
+                        ? 'bg-warn text-white border-warn shadow-sm'
+                        : 'bg-card text-muted border-border hover:text-ink'
+                    }`}
+                  >
+                    {category === 'feed' ? 'Borrowed Feed' : category === 'crates' ? 'Borrowed Crates' : 'Borrowed Expense'} (On Credit)
                   </button>
                 </div>
               </div>
 
-              {category === 'borrowed' && (
+              {isBorrowed ? (
                 <div className="bg-warn-bg/40 border border-warn/40 rounded-md px-3.5 py-2.5 text-xs text-ink">
-                  <strong className="text-warn">Borrowed Expense (Not Paid Yet):</strong> This expense will{' '}
-                  <strong>not</strong> be subtracted from Money We Have until the Admin marks it as{' '}
-                  <strong>Paid</strong> in the Summary page.
+                  <strong className="text-warn">
+                    Borrowed {category === 'feed' ? 'Feed' : category === 'crates' ? 'Crates' : 'Expense'} (Credit):
+                  </strong>{' '}
+                  This is included in your <strong>{category === 'feed' ? 'Feed' : category === 'crates' ? 'Crates' : 'Total'} Expenses</strong>, but will{' '}
+                  <strong>not</strong> be deducted from Money We Have until marked as <strong>Paid</strong> in the Summary or Manual Entry page.
+                </div>
+              ) : (
+                <div className="bg-success-bg/40 border border-success/30 rounded-md px-3.5 py-2 text-xs text-ink">
+                  <span className="text-success font-semibold">Immediate Cash Payment:</span> Deducted from Money We Have upon saving.
                 </div>
               )}
 
-              {/* Item Name (Required for Other and Borrowed) */}
-              {(category === 'other' || category === 'borrowed') && (
-                <div>
-                  <label htmlFor="expense-name" className="block text-label-sm text-ink mb-1.5">
-                    Item / Description <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    id="expense-name"
-                    type="text"
-                    placeholder={
-                      category === 'borrowed'
-                        ? 'e.g. Feed on credit, Crates on credit, Medication'
-                        : 'e.g. Fuel, Food, Medication'
-                    }
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value)
-                      if (e.target.value.trim()) setErrors((p) => ({ ...p, name: undefined }))
-                    }}
-                    className={`input-base ${errors.name ? 'input-error' : ''}`}
-                  />
-                  {errors.name && <p className="text-helper-xs text-danger mt-1">{errors.name}</p>}
-                </div>
-              )}
+              {/* Item Name (Required for Other, Optional for Feed & Crates) */}
+              <div>
+                <label htmlFor="expense-name" className="block text-label-sm text-ink mb-1.5">
+                  Item Description {category === 'other' ? <span className="text-danger">*</span> : <span className="text-muted font-normal">(optional)</span>}
+                </label>
+                <input
+                  id="expense-name"
+                  type="text"
+                  placeholder={
+                    category === 'feed'
+                      ? 'e.g. Grower Mash, Layer Mash, Starter (Default: Feed)'
+                      : category === 'crates'
+                        ? 'e.g. Plastic Crates, Paper Trays (Default: Crates)'
+                        : 'e.g. Fuel, Staff Food, Vet Medication'
+                  }
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value)
+                    if (e.target.value.trim()) setErrors((p) => ({ ...p, name: undefined }))
+                  }}
+                  className={`input-base ${errors.name ? 'input-error' : ''}`}
+                />
+                {errors.name && <p className="text-helper-xs text-danger mt-1">{errors.name}</p>}
+              </div>
 
               {/* Quantity */}
               <div>
