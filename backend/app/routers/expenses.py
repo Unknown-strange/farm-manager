@@ -1,32 +1,32 @@
 """Expenses router: recording expenses with undo windows and privacy protection."""
 
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import select
+from typing import List, Optional
 
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.config import settings
 from app.database import get_db
-from app.models import Expense, DailyClosing, User
+from app.models import DailyClosing, Expense, User
+from app.permissions import (
+    EXPENSES_CREATE,
+    EXPENSES_EDIT,
+    EXPENSES_READ,
+    EXPENSES_UNDO_OWN,
+    has_permission,
+)
 from app.schemas import (
     ExpenseCreate,
     ExpenseCreateResponse,
-    ExpenseUpdate,
     ExpenseResponse,
+    ExpenseUpdate,
 )
 from app.security import (
-    get_current_user,
-    require_permission,
     get_business_date,
+    require_permission,
 )
-from app.permissions import (
-    EXPENSES_CREATE,
-    EXPENSES_UNDO_OWN,
-    EXPENSES_READ,
-    EXPENSES_EDIT,
-    has_permission,
-)
-from app.config import settings
 from app.services.audit import record_audit
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
@@ -57,11 +57,16 @@ def create_expense(
     now_utc = datetime.now(timezone.utc)
     undo_until = now_utc + timedelta(minutes=settings.STAFF_EXPENSE_UNDO_MINUTES)
 
+    is_borrowed_flag = bool(payload.is_borrowed or payload.category == "borrowed")
+    default_name = "Crates" if payload.category == "crates" else "Feed"
+
     expense = Expense(
         category=payload.category,
-        name=payload.name if payload.name else "Feed",
+        name=payload.name if payload.name else default_name,
         quantity=payload.quantity,
         amount=payload.amount,
+        is_borrowed=is_borrowed_flag,
+        paid=not is_borrowed_flag,
         business_date=target_date,
         created_by=current_user.id,
         created_at=now_utc,
@@ -79,6 +84,8 @@ def create_expense(
             "category": expense.category,
             "name": expense.name,
             "amount": str(expense.amount),
+            "is_borrowed": expense.is_borrowed,
+            "paid": expense.paid,
             "business_date": str(expense.business_date),
         },
     )
@@ -171,6 +178,10 @@ def list_expenses(
             name=r.Expense.name,
             quantity=r.Expense.quantity,
             amount=r.Expense.amount,
+            is_borrowed=bool(r.Expense.is_borrowed),
+            paid=bool(r.Expense.paid),
+            paid_by=r.Expense.paid_by,
+            paid_at=r.Expense.paid_at,
             business_date=r.Expense.business_date,
             created_by=r.Expense.created_by,
             created_by_name=r.creator_name,
@@ -205,16 +216,27 @@ def update_expense(
         "name": expense.name,
         "quantity": expense.quantity,
         "amount": str(expense.amount),
+        "is_borrowed": expense.is_borrowed,
+        "paid": expense.paid,
     }
 
     if payload.category is not None:
         expense.category = payload.category
+        if payload.category == "borrowed" and payload.is_borrowed is None:
+            expense.is_borrowed = True
+            expense.paid = False
     if payload.name is not None:
         expense.name = payload.name
     if payload.quantity is not None:
         expense.quantity = payload.quantity
     if payload.amount is not None:
         expense.amount = payload.amount
+    if payload.is_borrowed is not None:
+        expense.is_borrowed = payload.is_borrowed
+        if payload.is_borrowed and expense.paid_at is None:
+            expense.paid = False
+        elif not payload.is_borrowed:
+            expense.paid = True
 
     record_audit(
         db=db,
@@ -228,6 +250,8 @@ def update_expense(
             "name": expense.name,
             "quantity": expense.quantity,
             "amount": str(expense.amount),
+            "is_borrowed": expense.is_borrowed,
+            "paid": expense.paid,
         },
     )
     db.commit()
@@ -240,6 +264,115 @@ def update_expense(
         name=expense.name,
         quantity=expense.quantity,
         amount=expense.amount,
+        is_borrowed=bool(expense.is_borrowed),
+        paid=bool(expense.paid),
+        paid_by=expense.paid_by,
+        paid_at=expense.paid_at,
+        business_date=expense.business_date,
+        created_by=expense.created_by,
+        created_by_name=creator.name if creator else None,
+        voided=expense.voided,
+        voided_by=expense.voided_by,
+        voided_at=expense.voided_at,
+        created_at=expense.created_at,
+    )
+
+
+@router.post("/{expense_id}/pay", response_model=ExpenseResponse)
+def mark_expense_paid(
+    expense_id: int,
+    current_user: User = Depends(require_permission(EXPENSES_EDIT)),
+    db: Session = Depends(get_db),
+):
+    """Marks a borrowed expense as paid (Admin only), deducting it from Money We Have."""
+    expense = db.get(Expense, expense_id)
+    if not expense or expense.voided:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"detail": "Expense not found", "code": "NOT_FOUND"},
+        )
+
+    now_utc = datetime.now(timezone.utc)
+    expense.is_borrowed = True
+    expense.paid = True
+    expense.paid_by = current_user.id
+    expense.paid_at = now_utc
+
+    record_audit(
+        db=db,
+        user_id=current_user.id,
+        action="expense.pay",
+        table_name="expenses",
+        record_id=str(expense.id),
+        old_value={"paid": False},
+        new_value={"paid": True, "paid_by": current_user.id, "paid_at": str(now_utc)},
+    )
+    db.commit()
+    db.refresh(expense)
+
+    creator = db.get(User, expense.created_by)
+    return ExpenseResponse(
+        id=expense.id,
+        category=expense.category,
+        name=expense.name,
+        quantity=expense.quantity,
+        amount=expense.amount,
+        is_borrowed=bool(expense.is_borrowed),
+        paid=bool(expense.paid),
+        paid_by=expense.paid_by,
+        paid_at=expense.paid_at,
+        business_date=expense.business_date,
+        created_by=expense.created_by,
+        created_by_name=creator.name if creator else None,
+        voided=expense.voided,
+        voided_by=expense.voided_by,
+        voided_at=expense.voided_at,
+        created_at=expense.created_at,
+    )
+
+
+@router.post("/{expense_id}/unpay", response_model=ExpenseResponse)
+def mark_expense_unpaid(
+    expense_id: int,
+    current_user: User = Depends(require_permission(EXPENSES_EDIT)),
+    db: Session = Depends(get_db),
+):
+    """Reverts a paid borrowed expense back to unpaid (Admin only), restoring Money We Have."""
+    expense = db.get(Expense, expense_id)
+    if not expense or expense.voided:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"detail": "Expense not found", "code": "NOT_FOUND"},
+        )
+
+    expense.is_borrowed = True
+    expense.paid = False
+    expense.paid_by = None
+    expense.paid_at = None
+
+    record_audit(
+        db=db,
+        user_id=current_user.id,
+        action="expense.unpay",
+        table_name="expenses",
+        record_id=str(expense.id),
+        old_value={"paid": True},
+        new_value={"paid": False, "paid_by": None, "paid_at": None},
+    )
+    db.commit()
+    db.refresh(expense)
+
+    creator = db.get(User, expense.created_by)
+    return ExpenseResponse(
+        id=expense.id,
+        category=expense.category,
+        name=expense.name,
+        quantity=expense.quantity,
+        amount=expense.amount,
+        is_borrowed=bool(expense.is_borrowed),
+        paid=bool(expense.paid),
+        paid_by=expense.paid_by,
+        paid_at=expense.paid_at,
         business_date=expense.business_date,
         created_by=expense.created_by,
         created_by_name=creator.name if creator else None,
@@ -290,6 +423,10 @@ def void_expense(
         name=expense.name,
         quantity=expense.quantity,
         amount=expense.amount,
+        is_borrowed=bool(expense.is_borrowed),
+        paid=bool(expense.paid),
+        paid_by=expense.paid_by,
+        paid_at=expense.paid_at,
         business_date=expense.business_date,
         created_by=expense.created_by,
         created_by_name=creator.name if creator else None,

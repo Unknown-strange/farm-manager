@@ -1,11 +1,12 @@
 """Comprehensive integration tests for all Egg Book backend system instances."""
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+
 from sqlalchemy import select
 
-from app.models import EggEvent, Expense, DailyClosing, AuditLog, User
-from app.security import get_business_date, hash_password, create_access_token
+from app.models import AuditLog, EggEvent, Expense
+from app.security import get_business_date
 
 
 def test_events_edit_and_void_same_day_vs_past_day(client, staff_headers, admin_headers, staff_user, db_session):

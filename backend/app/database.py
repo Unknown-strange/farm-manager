@@ -1,8 +1,10 @@
 """Database connection and session factory using SQLAlchemy 2.0."""
 
 from typing import Generator
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase, Session
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+
 from app.config import settings
 
 engine = create_engine(

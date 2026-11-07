@@ -2,12 +2,13 @@
 
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Dict, Any, List, Optional, Tuple
-from sqlalchemy.orm import Session
-from sqlalchemy import select, func, case, and_, or_
-from fastapi import HTTPException, status
+from typing import Any, Dict, List, Optional, Tuple
 
-from app.models import EggEvent, Expense, DailyClosing, User, Setting
+from fastapi import HTTPException, status
+from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy.orm import Session
+
+from app.models import DailyClosing, EggEvent, Expense, Setting, User
 
 
 def get_first_opening_override(db: Session) -> int:
@@ -43,10 +44,12 @@ def recorded_paid_revenue_on(db: Session, target_date: date) -> Decimal:
 
 
 def recorded_expenses_on(db: Session, target_date: date) -> Decimal:
-    """Sum of non-voided expense amounts recorded on target_date."""
+    """Sum of non-voided PAID expense amounts recorded on target_date."""
     val = db.scalar(
         select(func.coalesce(func.sum(Expense.amount), 0)).where(
-            Expense.business_date == target_date, Expense.voided.is_(False)
+            Expense.business_date == target_date,
+            Expense.voided.is_(False),
+            Expense.paid.is_(True),
         )
     ) or 0
     return Decimal(str(val))
@@ -116,7 +119,10 @@ def calculate_all_time_net_cash_flow(db: Session, up_to_date: Optional[date] = N
         sales_stmt = sales_stmt.where(EggEvent.business_date <= up_to_date)
     paid_sales = db.scalar(sales_stmt) or 0
 
-    exp_stmt = select(func.coalesce(func.sum(Expense.amount), 0)).where(Expense.voided.is_(False))
+    exp_stmt = select(func.coalesce(func.sum(Expense.amount), 0)).where(
+        Expense.voided.is_(False),
+        Expense.paid.is_(True),
+    )
     if up_to_date is not None:
         exp_stmt = exp_stmt.where(Expense.business_date <= up_to_date)
     all_expenses = db.scalar(exp_stmt) or 0
@@ -316,22 +322,76 @@ def calculate_daily_book(db: Session, target_date: date) -> Dict[str, Any]:
     borrowed_amount = Decimal(str(event_row.borrowed_amount))
     total_sales_amount = revenue + borrowed_amount
 
-    # Expenses aggregates for target_date
+    # Expenses aggregates for target_date (unpaid borrowed expenses are NOT subtracted from money)
     expenses_stmt = select(
         func.coalesce(
-            func.sum(case((Expense.category == "feed", Expense.amount), else_=0)), 0
+            func.sum(
+                case(
+                    (and_(Expense.category == "feed", Expense.paid.is_(True)), Expense.amount),
+                    else_=0,
+                )
+            ),
+            0,
         ).label("feed"),
         func.coalesce(
-            func.sum(case((Expense.category == "other", Expense.amount), else_=0)), 0
+            func.sum(
+                case(
+                    (and_(Expense.category == "crates", Expense.paid.is_(True)), Expense.amount),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label("crates"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (and_(Expense.category == "other", Expense.paid.is_(True)), Expense.amount),
+                    else_=0,
+                )
+            ),
+            0,
         ).label("other"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (and_(Expense.category == "borrowed", Expense.paid.is_(True)), Expense.amount),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label("borrowed_expenses_paid"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (Expense.paid.is_(False), Expense.amount),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label("borrowed_expenses_unpaid"),
     ).where(
         Expense.business_date == target_date,
         Expense.voided.is_(False),
     )
     expense_row = db.execute(expenses_stmt).one()
     feed = Decimal(str(expense_row.feed))
+    crates = Decimal(str(expense_row.crates))
     other = Decimal(str(expense_row.other))
-    total_expenses = feed + other
+    borrowed_expenses_paid = Decimal(str(expense_row.borrowed_expenses_paid))
+    borrowed_expenses_unpaid = Decimal(str(expense_row.borrowed_expenses_unpaid))
+    total_expenses = feed + crates + other + borrowed_expenses_paid
+
+    unpaid_borrowed_expenses_all_time = Decimal(
+        str(
+            db.scalar(
+                select(func.coalesce(func.sum(Expense.amount), 0)).where(
+                    Expense.voided.is_(False),
+                    Expense.paid.is_(False),
+                )
+            )
+            or 0
+        )
+    )
 
     closing = opening + gotten - sold
     net_margin = revenue - total_expenses
@@ -439,7 +499,11 @@ def calculate_daily_book(db: Session, target_date: date) -> Dict[str, Any]:
         "borrowed_amount": borrowed_amount,
         "total_sales_amount": total_sales_amount,
         "feed": feed,
+        "crates": crates,
         "other": other,
+        "borrowed_expenses_paid": borrowed_expenses_paid,
+        "borrowed_expenses_unpaid": borrowed_expenses_unpaid,
+        "unpaid_borrowed_expenses_all_time": unpaid_borrowed_expenses_all_time,
         "total_expenses": total_expenses,
         "net_margin": net_margin,
         "projected_net_margin": projected_net_margin,
@@ -557,11 +621,50 @@ def calculate_period_summary(
 
     expenses_stmt = select(
         func.coalesce(
-            func.sum(case((Expense.category == "feed", Expense.amount), else_=0)), 0
+            func.sum(
+                case(
+                    (and_(Expense.category == "feed", Expense.paid.is_(True)), Expense.amount),
+                    else_=0,
+                )
+            ),
+            0,
         ).label("feed_expenses"),
         func.coalesce(
-            func.sum(case((Expense.category == "other", Expense.amount), else_=0)), 0
+            func.sum(
+                case(
+                    (and_(Expense.category == "crates", Expense.paid.is_(True)), Expense.amount),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label("crates_expenses"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (and_(Expense.category == "other", Expense.paid.is_(True)), Expense.amount),
+                    else_=0,
+                )
+            ),
+            0,
         ).label("other_expenses"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (and_(Expense.category == "borrowed", Expense.paid.is_(True)), Expense.amount),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label("borrowed_expenses_paid"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (Expense.paid.is_(False), Expense.amount),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label("borrowed_expenses_unpaid"),
     ).where(
         Expense.business_date >= start_date,
         Expense.business_date <= end_date,
@@ -569,8 +672,23 @@ def calculate_period_summary(
     )
     exp_row = db.execute(expenses_stmt).one()
     feed_expenses = Decimal(str(exp_row.feed_expenses))
+    crates_expenses = Decimal(str(exp_row.crates_expenses))
     other_expenses = Decimal(str(exp_row.other_expenses))
-    total_expenses = feed_expenses + other_expenses
+    borrowed_expenses_paid = Decimal(str(exp_row.borrowed_expenses_paid))
+    borrowed_expenses_unpaid = Decimal(str(exp_row.borrowed_expenses_unpaid))
+    total_expenses = feed_expenses + crates_expenses + other_expenses + borrowed_expenses_paid
+
+    unpaid_borrowed_expenses_all_time = Decimal(
+        str(
+            db.scalar(
+                select(func.coalesce(func.sum(Expense.amount), 0)).where(
+                    Expense.voided.is_(False),
+                    Expense.paid.is_(False),
+                )
+            )
+            or 0
+        )
+    )
 
     # Apply reconciliation money overrides within the period [start_date, end_date].
     # Egg figures stay as recorded; physical count differences are shown separately as
@@ -664,11 +782,39 @@ def calculate_period_summary(
             "name": r.Expense.name,
             "quantity": r.Expense.quantity,
             "amount": Decimal(str(r.Expense.amount)),
+            "is_borrowed": bool(r.Expense.is_borrowed or r.Expense.category == "borrowed" or not r.Expense.paid),
+            "paid": bool(r.Expense.paid),
+            "paid_by": r.Expense.paid_by,
+            "paid_at": r.Expense.paid_at,
             "created_by_name": r.creator_name,
             "created_at": r.Expense.created_at,
         }
         for r in exp_item_rows
     ]
+
+    borrowed_expenses = [
+        {
+            "id": r.Expense.id,
+            "category": r.Expense.category,
+            "name": r.Expense.name,
+            "quantity": r.Expense.quantity,
+            "amount": Decimal(str(r.Expense.amount)),
+            "is_borrowed": bool(r.Expense.is_borrowed or r.Expense.category == "borrowed" or not r.Expense.paid),
+            "paid": bool(r.Expense.paid),
+            "paid_by": r.Expense.paid_by,
+            "paid_at": r.Expense.paid_at,
+            "business_date": r.Expense.business_date,
+            "created_by": r.Expense.created_by,
+            "created_by_name": r.creator_name,
+            "voided": r.Expense.voided,
+            "voided_by": r.Expense.voided_by,
+            "voided_at": r.Expense.voided_at,
+            "created_at": r.Expense.created_at,
+        }
+        for r in exp_item_rows
+        if (r.Expense.is_borrowed or r.Expense.category == "borrowed" or not r.Expense.paid)
+    ]
+    borrowed_expenses.sort(key=lambda x: (x["paid"], -x["id"]))
 
     # --- Itemized Sales & Financial Transactions with Logged-by Staff ---
     sales_stmt = (
@@ -707,19 +853,28 @@ def calculate_period_summary(
         })
 
     for r in exp_item_rows:
+        cat_label = (
+            "Feed"
+            if r.Expense.category == "feed"
+            else "Crates"
+            if r.Expense.category == "crates"
+            else "Borrowed Expense"
+            if (r.Expense.category == "borrowed" or r.Expense.is_borrowed or not r.Expense.paid)
+            else "Expense"
+        )
         tx_items.append({
             "id": f"expense-{r.Expense.id}",
             "kind": f"expense_{r.Expense.category}",
             "business_date": r.Expense.business_date,
             "occurred_at": r.Expense.created_at,
-            "title": f"{'Feed' if r.Expense.category == 'feed' else 'Expense'}: {r.Expense.name}",
+            "title": f"{cat_label}: {r.Expense.name}" + (" (Unpaid — Not Deducted)" if not r.Expense.paid else ""),
             "description": r.Expense.quantity,
             "amount": Decimal(str(r.Expense.amount)),
             "is_cash_in": False,
             "user_name": r.creator_name,
             "crates": None,
             "eggs": None,
-            "paid": True,
+            "paid": bool(r.Expense.paid),
         })
 
     tx_items.sort(key=lambda x: (x["business_date"], x["occurred_at"]), reverse=True)
@@ -742,9 +897,23 @@ def calculate_period_summary(
     for r in exp_item_rows:
         bd = r.Expense.business_date
         if bd not in daily_exps:
-            daily_exps[bd] = {"feed": Decimal("0.00"), "other": Decimal("0.00"), "count": 0, "users": set()}
-        if r.Expense.category == "feed":
+            daily_exps[bd] = {
+                "feed": Decimal("0.00"),
+                "crates": Decimal("0.00"),
+                "other": Decimal("0.00"),
+                "borrowed_paid": Decimal("0.00"),
+                "borrowed_unpaid": Decimal("0.00"),
+                "count": 0,
+                "users": set(),
+            }
+        if not r.Expense.paid:
+            daily_exps[bd]["borrowed_unpaid"] += Decimal(str(r.Expense.amount))
+        elif r.Expense.category == "feed":
             daily_exps[bd]["feed"] += Decimal(str(r.Expense.amount))
+        elif r.Expense.category == "crates":
+            daily_exps[bd]["crates"] += Decimal(str(r.Expense.amount))
+        elif r.Expense.category == "borrowed":
+            daily_exps[bd]["borrowed_paid"] += Decimal(str(r.Expense.amount))
         else:
             daily_exps[bd]["other"] += Decimal(str(r.Expense.amount))
         daily_exps[bd]["count"] += 1
@@ -825,7 +994,18 @@ def calculate_period_summary(
             opening_cash = running_cash
 
             s_info = daily_sales.get(cur_date, {"cash": Decimal("0.00"), "borrowed": Decimal("0.00"), "count": 0, "users": set()})
-            e_info = daily_exps.get(cur_date, {"feed": Decimal("0.00"), "other": Decimal("0.00"), "count": 0, "users": set()})
+            e_info = daily_exps.get(
+                cur_date,
+                {
+                    "feed": Decimal("0.00"),
+                    "crates": Decimal("0.00"),
+                    "other": Decimal("0.00"),
+                    "borrowed_paid": Decimal("0.00"),
+                    "borrowed_unpaid": Decimal("0.00"),
+                    "count": 0,
+                    "users": set(),
+                },
+            )
             closing_rec = closings_map.get(cur_date)
 
             day_cash_rev = Decimal(str(closing_rec.actual_revenue)) if (closing_rec and closing_rec.actual_revenue is not None) else s_info["cash"]
@@ -833,8 +1013,15 @@ def calculate_period_summary(
             day_total_sales = day_cash_rev + day_borrowed
 
             day_feed = e_info["feed"]
+            day_crates = e_info["crates"]
             day_other = e_info["other"]
-            day_total_exp = Decimal(str(closing_rec.actual_expenses)) if (closing_rec and closing_rec.actual_expenses is not None) else (day_feed + day_other)
+            day_borrowed_exp_paid = e_info["borrowed_paid"]
+            day_borrowed_exp_unpaid = e_info["borrowed_unpaid"]
+            day_total_exp = (
+                Decimal(str(closing_rec.actual_expenses))
+                if (closing_rec and closing_rec.actual_expenses is not None)
+                else (day_feed + day_crates + day_other + day_borrowed_exp_paid)
+            )
 
             day_net_flow = day_cash_rev - day_total_exp
             closing_cash = opening_cash + day_net_flow
@@ -852,7 +1039,10 @@ def calculate_period_summary(
                 "borrowed_amount": day_borrowed,
                 "total_sales_value": day_total_sales,
                 "feed_expenses": day_feed,
+                "crates_expenses": day_crates,
                 "other_expenses": day_other,
+                "borrowed_expenses_paid": day_borrowed_exp_paid,
+                "borrowed_expenses_unpaid": day_borrowed_exp_unpaid,
                 "total_expenses": day_total_exp,
                 "net_cash_flow": day_net_flow,
                 "closing_money": closing_cash,
@@ -902,11 +1092,16 @@ def calculate_period_summary(
         "unpaid_borrowed_all_time": unpaid_borrowed_all_time,
         "unpaid_borrowed_outside_period": unpaid_borrowed_outside_period,
         "feed_expenses": feed_expenses,
+        "crates_expenses": crates_expenses,
         "other_expenses": other_expenses,
+        "borrowed_expenses_paid": borrowed_expenses_paid,
+        "borrowed_expenses_unpaid": borrowed_expenses_unpaid,
+        "unpaid_borrowed_expenses_all_time": unpaid_borrowed_expenses_all_time,
         "total_expenses": total_expenses,
         "money_left_present": money_left_present,
         "money_left_with_borrowed": money_left_with_borrowed,
         "borrowed_sales": borrowed_sales,
+        "borrowed_expenses": borrowed_expenses,
         "daily_financials": daily_financial_items,
         "expenses": expense_items,
         "financial_transactions": tx_items,
@@ -919,7 +1114,7 @@ def assert_stock_non_negative(
     proposed_egg_delta: int,
 ) -> None:
     """Ensures that introducing proposed_egg_delta on target_date does not cause stock to fall below zero.
-    
+
     proposed_egg_delta is negative for egg deductions (e.g. -eggs when selling or cracking).
     """
     if proposed_egg_delta >= 0:

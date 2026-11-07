@@ -1,18 +1,19 @@
 """Security utilities: password hashing, JWT management, and permission dependencies."""
 
-from datetime import datetime, timedelta, date, timezone
+from datetime import date, datetime, timedelta, timezone
+from typing import Callable, Optional
 from zoneinfo import ZoneInfo
-from typing import Optional, Callable
+
 import bcrypt
 import jwt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import Select
+from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.models import User, EggEvent
+from app.models import EggEvent, User
 from app.permissions import has_permission
 
 http_bearer = HTTPBearer(auto_error=False)

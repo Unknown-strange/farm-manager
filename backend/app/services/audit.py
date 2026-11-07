@@ -1,7 +1,9 @@
 """Centralized audit logging service."""
 
-from typing import Optional, Any
+from typing import Any, Optional
+
 from sqlalchemy.orm import Session
+
 from app.models import AuditLog
 
 

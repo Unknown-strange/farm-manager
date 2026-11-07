@@ -1,16 +1,17 @@
 """Daily closings router: reconciliation, end-of-day counts, and locking days."""
 
 from datetime import date, datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import DailyClosing, User
+from app.permissions import CLOSINGS_MANAGE
 from app.schemas import CloseDayRequest, ClosingResponse
 from app.security import require_permission
-from app.permissions import CLOSINGS_MANAGE
-from app.services.book import calculate_daily_book
 from app.services.audit import record_audit
+from app.services.book import calculate_daily_book
 
 router = APIRouter(prefix="/closings", tags=["closings"])
 

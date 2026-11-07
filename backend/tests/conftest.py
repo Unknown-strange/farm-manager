@@ -2,6 +2,7 @@
 
 import os
 import sys
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -14,13 +15,14 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 # Override JSONB to standard JSON for SQLite compatibility in tests
 from app.models import AuditLog
+
 AuditLog.__table__.columns["old_value"].type = JSON()
 AuditLog.__table__.columns["new_value"].type = JSON()
 
 from app.database import Base, get_db
 from app.main import app
-from app.models import User, Setting
-from app.security import hash_password, create_access_token
+from app.models import User
+from app.security import create_access_token, hash_password
 
 # In-memory SQLite for instantaneous, isolated tests
 TEST_DATABASE_URL = "sqlite:///:memory:"

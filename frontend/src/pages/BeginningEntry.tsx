@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Wallet,
@@ -12,14 +13,23 @@ import {
   History,
   Banknote,
   Egg,
+  Lock,
+  Unlock,
+  Sliders,
+  XCircle,
+  AlertTriangle,
 } from 'lucide-react'
 import { TopBar } from '@/components/layout/TopBar'
 import { EggQuantityInput } from '@/components/EggQuantityInput'
+import { DatePicker } from '@/components/DatePicker'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { UnifiedCard } from '@/components/UnifiedCard'
 import { useToast } from '@/components/Toast'
 import { settingsApi } from '@/api/settings'
 import { summaryApi } from '@/api/summary'
 import { eventsApi, type EggEvent } from '@/api/events'
 import { expensesApi, type ExpenseCategory } from '@/api/expenses'
+import { closingsApi } from '@/api/closings'
 import { formatEggs } from '@/lib/eggs'
 import { formatMoney } from '@/lib/money'
 import { todayString, formatDate } from '@/lib/dates'
@@ -28,6 +38,118 @@ export function BeginningEntry() {
   const today = todayString()
   const toast = useToast()
   const queryClient = useQueryClient()
+
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialReconcileDate = searchParams.get('date') || today
+  const [reconcileDate, setReconcileDate] = useState<string>(initialReconcileDate)
+
+  // Sync reconcileDate if URL searchParam date changes
+  useEffect(() => {
+    const d = searchParams.get('date')
+    if (d && d !== reconcileDate) {
+      setReconcileDate(d)
+    }
+  }, [searchParams, reconcileDate])
+
+  const handleReconcileDateChange = (d: string) => {
+    setReconcileDate(d)
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('date', d)
+        return next
+      },
+      { replace: true }
+    )
+  }
+
+  // Reconciliation actual inputs
+  const [countedEggsOverride, setCountedEggsOverride] = useState<number | null>(null)
+  const [actualRevenueInput, setActualRevenueInput] = useState<string>('')
+  const [actualExpensesInput, setActualExpensesInput] = useState<string>('')
+  const [actualSoldEggsOverride, setActualSoldEggsOverride] = useState<number | null>(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false)
+
+  useEffect(() => {
+    setCountedEggsOverride(null)
+    setActualRevenueInput('')
+    setActualExpensesInput('')
+    setActualSoldEggsOverride(null)
+  }, [reconcileDate])
+
+  const { data: closing, isLoading: isClosingLoading } = useQuery({
+    queryKey: ['closing', reconcileDate],
+    queryFn: () => closingsApi.getClosing(reconcileDate),
+  })
+
+  const { data: reconcileDailyBook } = useQuery({
+    queryKey: ['daily-book', reconcileDate],
+    queryFn: () => summaryApi.getDailyBook(reconcileDate),
+  })
+
+  // Recorded values from system entries
+  const recordedClosing = closing?.closing_eggs ?? reconcileDailyBook?.computed_closing ?? reconcileDailyBook?.closing ?? 0
+  const recordedRevenue = Number(closing?.recorded_revenue ?? reconcileDailyBook?.recorded_revenue ?? reconcileDailyBook?.revenue ?? 0)
+  const recordedExpenses = Number(closing?.recorded_expenses ?? reconcileDailyBook?.recorded_expenses ?? reconcileDailyBook?.total_expenses ?? 0)
+  const recordedSold = closing?.recorded_sold_eggs ?? reconcileDailyBook?.recorded_sold ?? reconcileDailyBook?.sold ?? 0
+
+  // Effective actual values with manual overrides
+  const countedEggs = countedEggsOverride ?? closing?.counted_eggs ?? recordedClosing
+  const actualRevenue = actualRevenueInput !== ''
+    ? Number(actualRevenueInput)
+    : (closing?.actual_revenue != null ? Number(closing.actual_revenue) : recordedRevenue)
+  const actualExpenses = actualExpensesInput !== ''
+    ? Number(actualExpensesInput)
+    : (closing?.actual_expenses != null ? Number(closing.actual_expenses) : recordedExpenses)
+  const actualSoldEggs = actualSoldEggsOverride ?? closing?.actual_sold_eggs ?? recordedSold
+
+  const diffEggs = countedEggs - recordedClosing
+  const diffRevenue = Number((actualRevenue - recordedRevenue).toFixed(2))
+  const diffExpenses = Number((actualExpenses - recordedExpenses).toFixed(2))
+  const diffSold = actualSoldEggs - recordedSold
+
+  const closeMutation = useMutation({
+    mutationFn: () =>
+      closingsApi.closeDay(reconcileDate, {
+        counted_eggs: countedEggs,
+        actual_revenue: actualRevenue,
+        actual_expenses: actualExpenses,
+        actual_sold_eggs: actualSoldEggs,
+      }),
+    onSuccess: () => {
+      toast(`Day ${formatDate(reconcileDate)} reconciled and locked!`, 'success')
+      setConfirmOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['closing', reconcileDate] })
+      queryClient.invalidateQueries({ queryKey: ['daily-book'] })
+      queryClient.invalidateQueries({ queryKey: ['period-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['summary'] })
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        'Failed to lock day'
+      toast(msg, 'error')
+    },
+  })
+
+  const unlockMutation = useMutation({
+    mutationFn: () => closingsApi.unlockDay(reconcileDate),
+    onSuccess: () => {
+      toast(`Day ${formatDate(reconcileDate)} unlocked for adjustments.`, 'info')
+      setUnlockConfirmOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['closing', reconcileDate] })
+      queryClient.invalidateQueries({ queryKey: ['daily-book'] })
+      queryClient.invalidateQueries({ queryKey: ['period-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['summary'] })
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        'Failed to unlock day'
+      toast(msg, 'error')
+    },
+  })
 
   // 1. Fetch settings and all-time summary
   const { data: settings, isLoading: isSettingsLoading } = useQuery({
@@ -222,14 +344,21 @@ export function BeginningEntry() {
         if (isNaN(amt) || amt <= 0) {
           throw new Error('Please enter a valid expense amount')
         }
-        if (histExpenseCategory === 'other' && !histNote.trim()) {
+        if ((histExpenseCategory === 'other' || histExpenseCategory === 'borrowed') && !histNote.trim()) {
           throw new Error('Please enter a description/name for the expense')
         }
         return expensesApi.createExpense({
           category: histExpenseCategory,
-          name: histNote.trim() || (histExpenseCategory === 'feed' ? 'Feed' : 'Expense'),
+          name:
+            histNote.trim() ||
+            (histExpenseCategory === 'feed'
+              ? 'Feed'
+              : histExpenseCategory === 'crates'
+                ? 'Crates'
+                : 'Expense'),
           quantity: histExpenseQty.trim() || undefined,
           amount: Number(amt.toFixed(2)),
+          is_borrowed: histExpenseCategory === 'borrowed',
           business_date: histDate,
         })
       } else {
@@ -325,54 +454,41 @@ export function BeginningEntry() {
         <div className="max-w-page mx-auto space-y-6">
           {/* TOP HERO STRIP: Current Money & Egg Stock We Have */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="card p-5 border-2 border-success/40 bg-success-bg/30">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-success">
-                  Money We Have (Present)
-                </span>
-                <Wallet size={18} className="text-success" />
-              </div>
-              <p className="text-2xl sm:text-3xl font-extrabold text-ink tabular-nums">
-                {isSummaryLoading ? '—' : formatMoney(presentMoney)}
-              </p>
-              <p className="text-xs text-muted mt-1.5">
-                Includes manual/beginning balance ({formatMoney(beginningMoneyVal)}) + paid sales − expenses
-              </p>
-            </div>
+            <UnifiedCard
+              label="Money We Have (Present)"
+              icon={<Wallet size={18} />}
+              variant="success"
+              value={isSummaryLoading ? '—' : formatMoney(presentMoney)}
+              helper={`Includes manual/beginning balance (${formatMoney(beginningMoneyVal)}) + paid sales − expenses`}
+            />
 
-            <div className="card p-5 border-2 border-intake/30 bg-intake-bg/20">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-intake">
-                  Eggs We Have (In Stock)
+            <UnifiedCard
+              label="Eggs We Have (In Stock)"
+              icon={<Package size={18} />}
+              variant="intake"
+              value={isSummaryLoading ? '—' : formatEggs(currentEggStock, perCrate)}
+              helper={
+                <span>
+                  {currentEggStock.toLocaleString()} total eggs · Opening Day Eggs ({eggOpeningDate === today ? 'Today' : formatDate(eggOpeningDate)}):{' '}
+                  <strong className="text-ink">
+                    {selectedDayBook ? formatEggs(Number(selectedDayBook.opening ?? 0), perCrate) : formatEggs(beginningEggsVal, perCrate)}
+                  </strong>
                 </span>
-                <Package size={18} className="text-intake" />
-              </div>
-              <p className="text-2xl sm:text-3xl font-extrabold text-ink tabular-nums">
-                {isSummaryLoading ? '—' : formatEggs(currentEggStock, perCrate)}
-              </p>
-              <p className="text-xs text-muted mt-1.5">
-                {currentEggStock.toLocaleString()} total eggs · Opening Day Eggs ({eggOpeningDate === today ? 'Today' : formatDate(eggOpeningDate)}):{' '}
-                <strong className="text-ink">
-                  {selectedDayBook ? formatEggs(Number(selectedDayBook.opening ?? 0), perCrate) : formatEggs(beginningEggsVal, perCrate)}
-                </strong>
-              </p>
-            </div>
+              }
+            />
 
-            <div className="card p-5 border-2 border-warn/40 bg-warn-bg/30">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-warn">
-                  Borrowed & Yet to Be Paid
+            <UnifiedCard
+              label="Borrowed & Yet to Be Paid"
+              icon={<Clock size={18} />}
+              variant="warn"
+              value={isSummaryLoading ? '—' : formatMoney(unpaidBorrowedTotal)}
+              helper={
+                <span>
+                  Money if all borrowed is paid:{' '}
+                  <strong className="text-ink">{formatMoney(projectedMoney)}</strong>
                 </span>
-                <Clock size={18} className="text-warn" />
-              </div>
-              <p className="text-2xl sm:text-3xl font-extrabold text-warn tabular-nums">
-                {isSummaryLoading ? '—' : formatMoney(unpaidBorrowedTotal)}
-              </p>
-              <p className="text-xs text-muted mt-1.5">
-                Money if all borrowed is paid:{' '}
-                <strong className="text-ink">{formatMoney(projectedMoney)}</strong>
-              </p>
-            </div>
+              }
+            />
           </div>
 
           {/* SECTION 1: Set / Change Money & Eggs We Already Have */}
@@ -848,7 +964,9 @@ export function BeginningEntry() {
                         className="input-base"
                       >
                         <option value="feed">Feed</option>
+                        <option value="crates">Crates</option>
                         <option value="other">Other Expense</option>
+                        <option value="borrowed">Borrowed Expense (Unpaid)</option>
                       </select>
                     </div>
                     <div>
@@ -938,12 +1056,287 @@ export function BeginningEntry() {
             )}
           </div>
 
-          {/* SECTION 3: Borrowed Eggs & Money Ledger — Mark as Paid */}
+          {/* SECTION 3: Single Day Reconciliation & Lock */}
+          <div className="card overflow-hidden">
+            <div className="p-4 sm:px-6 sm:py-5 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-canvas/40">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h2 className="text-title-section text-ink flex items-center gap-2">
+                    <Sliders size={18} className="text-brand" />
+                    3. Daily Reconciliation &amp; Lock
+                  </h2>
+                  {closing?.locked ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-success-bg text-success border border-success-border">
+                      <Lock size={12} />
+                      Locked &amp; Reconciled
+                    </span>
+                  ) : (
+                    <span className="badge-neutral">Open for Reconciliation</span>
+                  )}
+                </div>
+                <p className="text-helper-xs text-muted">
+                  Physical count and actual figures are recorded for a specific day: <strong>{formatDate(reconcileDate)}</strong>. Locking updates the real values for this day and anchors opening stock forward.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <label className="text-xs text-muted font-medium whitespace-nowrap">Reference Date:</label>
+                <DatePicker value={reconcileDate} onChange={handleReconcileDateChange} />
+              </div>
+            </div>
+
+            {isClosingLoading ? (
+              <div className="p-8 flex items-center justify-center text-muted gap-2">
+                <Loader2 size={18} className="animate-spin" />
+                <span>Loading day reconciliation data...</span>
+              </div>
+            ) : (
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Field 1: Physical Storeroom Closing Stock */}
+                  <div className="p-5 rounded-lg border border-border bg-canvas/30 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
+                          <Package size={15} className="text-brand" />
+                          1. Physical Eggs in Storeroom
+                        </span>
+                        <p className="text-helper-xs text-muted mt-0.5">
+                          Recorded closing stock: <strong className="text-ink">{formatEggs(recordedClosing, perCrate)}</strong> ({recordedClosing} eggs)
+                        </p>
+                      </div>
+                      <span className="text-xs font-mono text-muted bg-canvas px-2 py-0.5 rounded border border-border">
+                        Storeroom Count
+                      </span>
+                    </div>
+
+                    <EggQuantityInput
+                      value={countedEggs}
+                      onChange={setCountedEggsOverride}
+                      perCrate={perCrate}
+                      disabled={closing?.locked}
+                    />
+
+                    {diffEggs === 0 ? (
+                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success">
+                        <CheckCircle2 size={15} className="flex-shrink-0" />
+                        <span>Matches recorded system stock ({recordedClosing} eggs).</span>
+                      </div>
+                    ) : diffEggs < 0 ? (
+                      <div className="p-2.5 rounded bg-danger-bg border border-danger/30 flex items-center gap-2 text-xs text-danger font-medium">
+                        <XCircle size={15} className="flex-shrink-0" />
+                        <span>Short by {formatEggs(Math.abs(diffEggs), perCrate)} ({Math.abs(diffEggs)} eggs vs recorded)</span>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded bg-warn-bg border border-warn/30 flex items-center gap-2 text-xs text-warn font-medium">
+                        <AlertTriangle size={15} className="flex-shrink-0" />
+                        <span>Over by +{formatEggs(diffEggs, perCrate)} (+{diffEggs} eggs vs recorded)</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Field 2: Actual Total Cash Gotten */}
+                  <div className="p-5 rounded-lg border border-border bg-canvas/30 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
+                          <Banknote size={15} className="text-success" />
+                          2. Actual Cash Gotten (Revenue)
+                        </span>
+                        <p className="text-helper-xs text-muted mt-0.5">
+                          Recorded cash revenue: <strong className="text-ink">{formatMoney(recordedRevenue)}</strong>
+                        </p>
+                      </div>
+                      <span className="text-xs font-mono text-muted bg-canvas px-2 py-0.5 rounded border border-border">
+                        Cash Till
+                      </span>
+                    </div>
+
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">
+                        GH₵
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        disabled={closing?.locked}
+                        value={
+                          actualRevenueInput !== ''
+                            ? actualRevenueInput
+                            : closing?.locked
+                            ? (closing.actual_revenue != null ? String(closing.actual_revenue) : String(recordedRevenue))
+                            : (closing?.actual_revenue != null ? String(closing.actual_revenue) : (actualRevenueInput !== '' ? actualRevenueInput : ''))
+                        }
+                        onChange={(e) => setActualRevenueInput(e.target.value)}
+                        placeholder={String(recordedRevenue)}
+                        className="input-field pl-12 font-bold tabular-nums w-full"
+                      />
+                    </div>
+
+                    {diffRevenue === 0 ? (
+                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success">
+                        <CheckCircle2 size={15} className="flex-shrink-0" />
+                        <span>Matches recorded cash revenue ({formatMoney(recordedRevenue)}).</span>
+                      </div>
+                    ) : diffRevenue > 0 ? (
+                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success font-medium">
+                        <CheckCircle2 size={15} className="flex-shrink-0" />
+                        <span>Extra cash: +{formatMoney(diffRevenue)} above recorded sales</span>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded bg-danger-bg border border-danger/30 flex items-center gap-2 text-xs text-danger font-medium">
+                        <XCircle size={15} className="flex-shrink-0" />
+                        <span>Short by {formatMoney(Math.abs(diffRevenue))} below recorded sales</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Field 3: Actual Total Expenses Made */}
+                  <div className="p-5 rounded-lg border border-border bg-canvas/30 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
+                          <Wallet size={15} className="text-danger" />
+                          3. Actual Expenses Made
+                        </span>
+                        <p className="text-helper-xs text-muted mt-0.5">
+                          Recorded expenses: <strong className="text-ink">{formatMoney(recordedExpenses)}</strong>
+                        </p>
+                      </div>
+                      <span className="text-xs font-mono text-muted bg-canvas px-2 py-0.5 rounded border border-border">
+                        Total Spent
+                      </span>
+                    </div>
+
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">
+                        GH₵
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        disabled={closing?.locked}
+                        value={
+                          actualExpensesInput !== ''
+                            ? actualExpensesInput
+                            : closing?.locked
+                            ? (closing.actual_expenses != null ? String(closing.actual_expenses) : String(recordedExpenses))
+                            : (closing?.actual_expenses != null ? String(closing.actual_expenses) : (actualExpensesInput !== '' ? actualExpensesInput : ''))
+                        }
+                        onChange={(e) => setActualExpensesInput(e.target.value)}
+                        placeholder={String(recordedExpenses)}
+                        className="input-field pl-12 font-bold tabular-nums w-full"
+                      />
+                    </div>
+
+                    {diffExpenses === 0 ? (
+                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success">
+                        <CheckCircle2 size={15} className="flex-shrink-0" />
+                        <span>Matches recorded expenses ({formatMoney(recordedExpenses)}).</span>
+                      </div>
+                    ) : diffExpenses > 0 ? (
+                      <div className="p-2.5 rounded bg-warn-bg border border-warn/30 flex items-center gap-2 text-xs text-warn font-medium">
+                        <AlertTriangle size={15} className="flex-shrink-0" />
+                        <span>Extra expenses: +{formatMoney(diffExpenses)} above recorded</span>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success font-medium">
+                        <CheckCircle2 size={15} className="flex-shrink-0" />
+                        <span>Lower expenses: −{formatMoney(Math.abs(diffExpenses))} vs recorded</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Field 4: Actual Total Eggs Sold */}
+                  <div className="p-5 rounded-lg border border-border bg-canvas/30 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
+                          <Package size={15} className="text-brand" />
+                          4. Actual Eggs Sold Today
+                        </span>
+                        <p className="text-helper-xs text-muted mt-0.5">
+                          Recorded eggs sold: <strong className="text-ink">{formatEggs(recordedSold, perCrate)}</strong> ({recordedSold} eggs)
+                        </p>
+                      </div>
+                      <span className="text-xs font-mono text-muted bg-canvas px-2 py-0.5 rounded border border-border">
+                        Sold Eggs
+                      </span>
+                    </div>
+
+                    <EggQuantityInput
+                      value={actualSoldEggs}
+                      onChange={setActualSoldEggsOverride}
+                      perCrate={perCrate}
+                      disabled={closing?.locked}
+                    />
+
+                    {diffSold === 0 ? (
+                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success">
+                        <CheckCircle2 size={15} className="flex-shrink-0" />
+                        <span>Matches recorded sold eggs ({recordedSold} eggs).</span>
+                      </div>
+                    ) : diffSold > 0 ? (
+                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success font-medium">
+                        <CheckCircle2 size={15} className="flex-shrink-0" />
+                        <span>Extra sold: +{formatEggs(diffSold, perCrate)} (+{diffSold} eggs vs recorded)</span>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded bg-warn-bg border border-warn/30 flex items-center gap-2 text-xs text-warn font-medium">
+                        <AlertTriangle size={15} className="flex-shrink-0" />
+                        <span>Fewer sold: −{formatEggs(Math.abs(diffSold), perCrate)} ({diffSold} eggs vs recorded)</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bottom Action Footer */}
+                <div className="pt-4 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  {closing?.locked ? (
+                    <>
+                      <div className="text-xs text-muted flex items-center gap-2">
+                        <Lock size={16} className="text-success flex-shrink-0" />
+                        <span>
+                          This day is locked with reconciled actuals. Physical stock anchors future opening stock, and cash differences flow into Money We Have.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setUnlockConfirmOpen(true)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md border border-warn text-warn hover:bg-warn-bg font-semibold text-xs transition-colors whitespace-nowrap self-end sm:self-auto"
+                      >
+                        <Unlock size={14} />
+                        Re-adjust / Unlock Day
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-xs text-muted">
+                        Review the 4 actual values above. Locking will override this day&apos;s figures in the Daily Book and anchor future storeroom stock.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmOpen(true)}
+                        className="btn-primary whitespace-nowrap self-end sm:self-auto"
+                      >
+                        <Lock size={16} />
+                        Close &amp; Lock Day with Actuals
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 4: Borrowed Eggs & Money Ledger — Mark as Paid */}
           <div className="card overflow-hidden">
             <div className="p-4 sm:px-6 sm:py-4 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h2 className="text-title-section text-ink">
-                  3. Borrowed Eggs & Money — Change Status to Paid
+                  4. Borrowed Eggs & Money — Change Status to Paid
                 </h2>
                 <p className="text-xs text-muted">
                   When a customer pays their borrowed balance, click <strong>Mark as Paid</strong> to add it to Money We Have.
@@ -1070,6 +1463,64 @@ export function BeginningEntry() {
           </div>
         </div>
       </div>
+
+      {/* Dialog 1: Confirm Lock with Actuals */}
+      <ConfirmDialog
+        isOpen={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={() => closeMutation.mutate()}
+        title="Lock Day with Reconciled Actuals"
+        message={
+          <div className="space-y-3 text-sm text-left">
+            <p className="text-muted">
+              Locking <strong>{formatDate(reconcileDate)}</strong> will record the following authoritative actuals:
+            </p>
+            <div className="p-3 bg-canvas rounded border border-border space-y-1.5 font-medium text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted">Physical Storeroom Closing:</span>
+                <span className="font-bold text-ink">{formatEggs(countedEggs, perCrate)} ({countedEggs} eggs)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted">Actual Cash Gotten:</span>
+                <span className="font-bold text-success">{formatMoney(actualRevenue)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted">Actual Expenses Made:</span>
+                <span className="font-bold text-danger">{formatMoney(actualExpenses)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted">Actual Eggs Sold:</span>
+                <span className="font-bold text-brand">{formatEggs(actualSoldEggs, perCrate)} ({actualSoldEggs} eggs)</span>
+              </div>
+            </div>
+            <p className="text-helper-xs text-muted">
+              Staff will no longer be able to record or edit entries for this date. You can unlock and re-adjust at any time if needed.
+            </p>
+          </div>
+        }
+        confirmLabel="Lock Day with Actuals"
+        isLoading={closeMutation.isPending}
+      />
+
+      {/* Dialog 2: Confirm Unlock / Re-adjust */}
+      <ConfirmDialog
+        isOpen={unlockConfirmOpen}
+        onClose={() => setUnlockConfirmOpen(false)}
+        onConfirm={() => unlockMutation.mutate()}
+        title="Unlock Day for Re-adjustment"
+        message={
+          <div className="space-y-2 text-sm text-left">
+            <p>
+              Are you sure you want to unlock <strong>{formatDate(reconcileDate)}</strong>?
+            </p>
+            <p className="text-xs text-muted">
+              This will re-open the day so you can modify actual figures or allow staff to adjust entries. Remember to lock again when finished.
+            </p>
+          </div>
+        }
+        confirmLabel="Unlock Day"
+        isLoading={unlockMutation.isPending}
+      />
     </>
   )
 }

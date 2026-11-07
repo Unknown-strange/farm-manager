@@ -52,20 +52,36 @@ export function Expenses() {
 
   const activeExpenses = expenses.filter((e) => !e.voided)
   const feedTotal = activeExpenses
-    .filter((e) => e.category === 'feed')
+    .filter((e) => e.category === 'feed' && e.paid !== false)
+    .reduce((sum, e) => sum + Number(e.amount), 0)
+  const cratesTotal = activeExpenses
+    .filter((e) => e.category === 'crates' && e.paid !== false)
     .reduce((sum, e) => sum + Number(e.amount), 0)
   const otherTotal = activeExpenses
-    .filter((e) => e.category === 'other')
+    .filter((e) => e.category === 'other' && e.paid !== false)
     .reduce((sum, e) => sum + Number(e.amount), 0)
-  const grandTotal = feedTotal + otherTotal
+  const borrowedPaidTotal = activeExpenses
+    .filter((e) => e.category === 'borrowed' && e.paid === true)
+    .reduce((sum, e) => sum + Number(e.amount), 0)
+  const borrowedUnpaidTotal = activeExpenses
+    .filter((e) => e.paid === false)
+    .reduce((sum, e) => sum + Number(e.amount), 0)
+  const grandTotal = feedTotal + cratesTotal + otherTotal + borrowedPaidTotal
 
   const createMutation = useMutation({
     mutationFn: () =>
       expensesApi.createExpense({
         category: newCategory,
-        name: newCategory === 'feed' ? 'Feed' : newName.trim(),
+        name:
+          newCategory === 'feed'
+            ? newName.trim() || 'Feed'
+            : newCategory === 'crates'
+              ? newName.trim() || 'Crates'
+              : newName.trim(),
         quantity: newQuantity.trim() || undefined,
         amount: parseFloat(newAmount),
+        is_borrowed: newCategory === 'borrowed',
+        business_date: selectedDate,
       }),
     onSuccess: () => {
       toast('Expense added', 'success')
@@ -136,8 +152,8 @@ export function Expenses() {
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (newCategory === 'other' && !newName.trim()) {
-      toast('Item name is required for Other expenses', 'error')
+    if ((newCategory === 'other' || newCategory === 'borrowed') && !newName.trim()) {
+      toast(`Item name is required for ${newCategory === 'borrowed' ? 'Borrowed' : 'Other'} expenses`, 'error')
       return
     }
     const amt = parseFloat(newAmount)
@@ -167,16 +183,50 @@ export function Expenses() {
     updateMutation.mutate({
       id: editingExpense.id,
       category: editCategory,
-      name: editCategory === 'feed' ? 'Feed' : editName.trim() || 'Expense',
+      name:
+        editCategory === 'feed'
+          ? editName.trim() || 'Feed'
+          : editCategory === 'crates'
+            ? editName.trim() || 'Crates'
+            : editName.trim() || 'Expense',
       quantity: editQuantity.trim() || undefined,
       amount: amt,
     })
   }
 
+  const markPaidMutation = useMutation({
+    mutationFn: (id: number) => expensesApi.markPaid(id),
+    onSuccess: (updated) => {
+      toast(
+        `Borrowed expense marked as Paid! ${formatMoney(Number(updated.amount))} deducted from Money We Have.`,
+        'success',
+      )
+      queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      queryClient.invalidateQueries({ queryKey: ['summary'] })
+      queryClient.invalidateQueries({ queryKey: ['period-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-book'] })
+    },
+    onError: () => toast('Failed to mark borrowed expense as paid', 'error'),
+  })
+
+  const markUnpaidMutation = useMutation({
+    mutationFn: (id: number) => expensesApi.markUnpaid(id),
+    onSuccess: () => {
+      toast('Reverted borrowed expense to Unpaid.', 'info')
+      queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      queryClient.invalidateQueries({ queryKey: ['summary'] })
+      queryClient.invalidateQueries({ queryKey: ['period-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-book'] })
+    },
+    onError: () => toast('Failed to update borrowed expense status', 'error'),
+  })
+
   const categoryChips: { label: string; value: ExpenseCategory | '' }[] = [
     { label: 'All Categories', value: '' },
     { label: 'Feed', value: 'feed' },
+    { label: 'Crates', value: 'crates' },
     { label: 'Other', value: 'other' },
+    { label: 'Borrowed Expense', value: 'borrowed' },
   ]
 
   return (
@@ -201,12 +251,18 @@ export function Expenses() {
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8">
         <div className="max-w-page mx-auto space-y-5 sm:space-y-6">
           {/* Summary Strip */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <StatCard
               label="Feed Total"
               value={formatMoney(feedTotal)}
-              helper="Poultry feed purchases"
-              variant="neutral"
+              helper="Paid poultry feed"
+              variant="brand"
+            />
+            <StatCard
+              label="Crates Total"
+              value={formatMoney(cratesTotal)}
+              helper="Paid egg crates"
+              variant="intake"
             />
             <StatCard
               label="Other Total"
@@ -215,9 +271,15 @@ export function Expenses() {
               variant="neutral"
             />
             <StatCard
+              label="Borrowed (Unpaid)"
+              value={formatMoney(borrowedUnpaidTotal)}
+              helper="Not deducted until paid"
+              variant="warn"
+            />
+            <StatCard
               label="Grand Total Spent"
               value={formatMoney(grandTotal)}
-              helper={`Active expenses for ${formatDate(selectedDate)}`}
+              helper={`Paid expenses for ${formatDate(selectedDate)}`}
               variant="danger"
             />
           </div>
@@ -292,7 +354,18 @@ export function Expenses() {
                           {formatTime(exp.created_at)}
                         </td>
                         <td className="py-3.5 px-6 whitespace-nowrap">
-                          <TypeTag type={exp.category} />
+                          <div className="flex items-center gap-1.5">
+                            <TypeTag type={exp.category} />
+                            {exp.paid === false ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-warn-bg text-warn border border-warn/30">
+                                Unpaid (Not Deducted)
+                              </span>
+                            ) : (exp.is_borrowed || exp.category === 'borrowed') ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-success-bg text-success border border-success/30">
+                                Paid
+                              </span>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="py-3.5 px-6 font-medium text-ink">{exp.name}</td>
                         <td className="py-3.5 px-6 text-muted">{exp.quantity || '—'}</td>
@@ -307,6 +380,24 @@ export function Expenses() {
                             <span className="badge-neutral">Voided</span>
                           ) : (
                             <div className="inline-flex items-center gap-3">
+                              {canEdit && exp.paid === false && (
+                                <button
+                                  onClick={() => markPaidMutation.mutate(exp.id)}
+                                  disabled={markPaidMutation.isPending}
+                                  className="text-xs font-semibold text-success hover:underline inline-flex items-center gap-1"
+                                >
+                                  Mark as Paid
+                                </button>
+                              )}
+                              {canEdit && exp.paid === true && (exp.is_borrowed || exp.category === 'borrowed') && (
+                                <button
+                                  onClick={() => markUnpaidMutation.mutate(exp.id)}
+                                  disabled={markUnpaidMutation.isPending}
+                                  className="text-xs font-semibold text-warn hover:underline inline-flex items-center gap-1"
+                                >
+                                  Revert Unpaid
+                                </button>
+                              )}
                               {canEdit && (
                                 <button
                                   onClick={() => openEditModal(exp)}
@@ -347,7 +438,7 @@ export function Expenses() {
         <form onSubmit={handleCreateSubmit} className="space-y-4">
           <div>
             <label className="block text-label-sm text-ink mb-1.5">Category</label>
-            <div className="grid grid-cols-2 gap-2 p-1 bg-canvas rounded border border-border">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1 bg-canvas rounded border border-border">
               <button
                 type="button"
                 onClick={() => setNewCategory('feed')}
@@ -358,23 +449,45 @@ export function Expenses() {
               </button>
               <button
                 type="button"
+                onClick={() => setNewCategory('crates')}
+                className={`h-9 rounded text-xs font-semibold ${newCategory === 'crates' ? 'bg-card text-brand shadow-card' : 'text-muted'
+                  }`}
+              >
+                Crates
+              </button>
+              <button
+                type="button"
                 onClick={() => setNewCategory('other')}
                 className={`h-9 rounded text-xs font-semibold ${newCategory === 'other' ? 'bg-card text-brand shadow-card' : 'text-muted'
                   }`}
               >
                 Other
               </button>
+              <button
+                type="button"
+                onClick={() => setNewCategory('borrowed')}
+                className={`h-9 rounded text-xs font-semibold ${newCategory === 'borrowed' ? 'bg-warn text-white shadow-card' : 'text-warn'
+                  }`}
+              >
+                Borrowed Expense
+              </button>
             </div>
           </div>
 
-          {newCategory === 'other' && (
+          {newCategory === 'borrowed' && (
+            <div className="bg-warn-bg/40 border border-warn/40 rounded px-3 py-2 text-xs text-ink">
+              <strong className="text-warn">Borrowed Expense:</strong> Not subtracted from Money We Have until marked as Paid in Summary.
+            </div>
+          )}
+
+          {(newCategory === 'other' || newCategory === 'borrowed') && (
             <div>
               <label className="block text-label-sm text-ink mb-1.5">Item Name *</label>
               <input
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="e.g. Fuel, Trays"
+                placeholder={newCategory === 'borrowed' ? 'e.g. Feed on credit, Crates on credit' : 'e.g. Fuel, Trays'}
                 className="input-base"
                 required
               />
@@ -434,11 +547,13 @@ export function Expenses() {
                 className="input-base"
               >
                 <option value="feed">Feed</option>
+                <option value="crates">Crates</option>
                 <option value="other">Other</option>
+                <option value="borrowed">Borrowed Expense</option>
               </select>
             </div>
 
-            {editCategory === 'other' && (
+            {(editCategory === 'other' || editCategory === 'borrowed') && (
               <div>
                 <label className="block text-label-sm text-ink mb-1.5">Item Name</label>
                 <input

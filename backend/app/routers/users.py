@@ -2,24 +2,25 @@
 
 from datetime import datetime, timezone
 from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import User
+from app.permissions import ALL_PERMISSIONS, USERS_MANAGE
 from app.schemas import (
-    UserCreate,
-    UserUpdate,
     PasswordResetRequest,
+    UserCreate,
     UserResponse,
+    UserUpdate,
 )
 from app.security import (
-    require_permission,
-    hash_password,
     get_user_permissions,
+    hash_password,
+    require_permission,
 )
-from app.permissions import USERS_MANAGE, ALL_PERMISSIONS
 from app.services.audit import record_audit
 
 router = APIRouter(prefix="/users", tags=["users"])

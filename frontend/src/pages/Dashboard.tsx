@@ -143,11 +143,11 @@ export function Dashboard() {
                     {formatDate(selectedDate)} is not yet closed &amp; reconciled
                   </p>
                   <p className="text-helper-xs text-muted">
-                    Enter the physical closing egg count in Summary to lock this day&apos;s book.
+                    Enter the physical closing egg count in Manual Entry to lock this day&apos;s book.
                   </p>
                 </div>
               </div>
-              <Link to={`/end-of-day?date=${selectedDate}`} className="btn-primary h-9 px-4 text-xs w-full sm:w-auto">
+              <Link to={`/beginning-entry?date=${selectedDate}`} className="btn-primary h-9 px-4 text-xs w-full sm:w-auto">
                 Close &amp; Lock Day
               </Link>
             </div>
@@ -160,14 +160,14 @@ export function Dashboard() {
             </div>
           ) : (
             <>
-              {/* 4 Headline Stat Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+              {/* 5 Headline Stat Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-5">
                 <StatCard
                   label="Remaining after today"
                   value={formatEggs(book.closing, perCrate)}
                   helper={`= ${book.closing} eggs in stock`}
                   icon={<Package size={20} />}
-                  variant="neutral"
+                  variant="intake"
                 />
                 <StatCard
                   label="Amount from sales"
@@ -183,9 +183,24 @@ export function Dashboard() {
                 <StatCard
                   label="Total spent"
                   value={formatMoney(Number(book.total_expenses))}
-                  helper="Feed & other costs"
+                  helper="Paid feed, crates & other"
                   icon={<Wallet size={20} />}
                   variant="danger"
+                />
+                <StatCard
+                  label="Borrowed Expenses"
+                  value={formatMoney(Number(book.unpaid_borrowed_expenses_all_time ?? book.borrowed_expenses_unpaid ?? 0))}
+                  helper={
+                    Number(book.borrowed_expenses_unpaid ?? 0) > 0
+                      ? `Today: ${formatMoney(Number(book.borrowed_expenses_unpaid))} (Not deducted yet)`
+                      : 'Unpaid credit expenses (Not deducted)'
+                  }
+                  icon={<Receipt size={20} />}
+                  variant={
+                    Number(book.unpaid_borrowed_expenses_all_time ?? book.borrowed_expenses_unpaid ?? 0) > 0
+                      ? 'warn'
+                      : 'neutral'
+                  }
                 />
                 <StatCard
                   label="Sales minus expenses"
@@ -309,18 +324,45 @@ export function Dashboard() {
                     </div>
 
                     <div className="px-6 py-3.5 flex items-center justify-between text-body-default">
+                      <span className="text-muted pl-3">• Crates expense</span>
+                      <span className="font-medium text-ink tabular-nums">
+                        {formatMoney(Number(book.crates ?? 0))}
+                      </span>
+                    </div>
+
+                    <div className="px-6 py-3.5 flex items-center justify-between text-body-default">
                       <span className="text-muted pl-3">• Other expenses</span>
                       <span className="font-medium text-ink tabular-nums">
                         {formatMoney(Number(book.other))}
                       </span>
                     </div>
 
+                    {Number(book.borrowed_expenses_paid ?? 0) > 0 && (
+                      <div className="px-6 py-3.5 flex items-center justify-between text-body-default">
+                        <span className="text-muted pl-3">• Borrowed expenses (Paid)</span>
+                        <span className="font-medium text-ink tabular-nums">
+                          {formatMoney(Number(book.borrowed_expenses_paid))}
+                        </span>
+                      </div>
+                    )}
+
                     <div className="px-6 py-3.5 flex items-center justify-between text-body-default">
-                      <span className="text-ink font-medium">Total spent</span>
+                      <span className="text-ink font-medium">Total spent (Paid)</span>
                       <span className="font-semibold text-danger tabular-nums">
                         - {formatMoney(Number(book.total_expenses))}
                       </span>
                     </div>
+
+                    {Number(book.borrowed_expenses_unpaid ?? 0) > 0 && (
+                      <div className="px-6 py-3.5 flex items-center justify-between text-body-default bg-warn-bg/20">
+                        <span className="text-warn font-medium">
+                          Borrowed expenses (Unpaid — not deducted from money)
+                        </span>
+                        <span className="font-semibold text-warn tabular-nums">
+                          {formatMoney(Number(book.borrowed_expenses_unpaid))}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Hero Net Cash Row */}
                     <div className="px-6 py-5 bg-brand-tint/60 flex items-center justify-between">
@@ -394,6 +436,26 @@ export function Dashboard() {
                     )}
                   </div>
 
+                  {/* Borrowed Expenses Status Card */}
+                  <div className="card p-5 space-y-3 border-2 border-warn/30 bg-warn-bg/10">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-title-section text-ink">Borrowed Expenses</h3>
+                      <Receipt size={18} className="text-warn" />
+                    </div>
+                    <p className="text-2xl font-extrabold text-warn tabular-nums">
+                      {formatMoney(Number(book.unpaid_borrowed_expenses_all_time ?? book.borrowed_expenses_unpaid ?? 0))}
+                    </p>
+                    <p className="text-xs text-muted leading-relaxed">
+                      Borrowed expenses sit here without reducing your Money We Have until you mark them as Paid in Summary.
+                    </p>
+                    <Link
+                      to={`/end-of-day?date=${selectedDate}`}
+                      className="btn-outline w-full justify-center text-xs border-warn/40 text-warn hover:bg-warn-bg/30"
+                    >
+                      Manage &amp; Pay in Summary
+                    </Link>
+                  </div>
+
                   {/* Reconciliation Status Card */}
                   <div className="card p-5 space-y-4">
                     <div className="flex items-center justify-between">
@@ -417,7 +479,7 @@ export function Dashboard() {
                         : 'Verify physical trays in the storeroom and cash collected at the end of the shift, then reconcile and lock.'}
                     </p>
                     <Link
-                      to={`/end-of-day?date=${selectedDate}`}
+                      to={`/beginning-entry?date=${selectedDate}`}
                       className="btn-outline w-full justify-center text-xs"
                     >
                       {book.locked ? 'View / Re-adjust Reconciliation' : 'Go to Reconcile & Close'}

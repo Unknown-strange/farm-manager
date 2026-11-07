@@ -1,12 +1,10 @@
-import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useState } from 'react'
+import { useSearchParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Lock,
-  Unlock,
   CheckCircle2,
   AlertTriangle,
-  XCircle,
   Loader2,
   Wallet,
   TrendingUp,
@@ -25,12 +23,12 @@ import {
 } from 'lucide-react'
 import { TopBar } from '@/components/layout/TopBar'
 import { DatePicker } from '@/components/DatePicker'
-import { EggQuantityInput } from '@/components/EggQuantityInput'
-import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { UnifiedCard } from '@/components/UnifiedCard'
 import { useToast } from '@/components/Toast'
 import { closingsApi } from '@/api/closings'
 import { summaryApi, type SummaryPeriod } from '@/api/summary'
 import { eventsApi } from '@/api/events'
+import { expensesApi } from '@/api/expenses'
 import { settingsApi } from '@/api/settings'
 import { formatEggs } from '@/lib/eggs'
 import { formatMoney } from '@/lib/money'
@@ -48,28 +46,15 @@ export function EndOfDay() {
   const [customFrom, setCustomFrom] = useState<string>(today)
   const [customTo, setCustomTo] = useState<string>(today)
   const [borrowedTab, setBorrowedTab] = useState<'unpaid' | 'paid' | 'all'>('unpaid')
+  const [borrowedExpenseTab, setBorrowedExpenseTab] = useState<'unpaid' | 'paid' | 'all'>('unpaid')
   const [financialTab, setFinancialTab] = useState<'daily' | 'expenses' | 'transactions'>('daily')
   const [txFilter, setTxFilter] = useState<'all' | 'sales' | 'expenses' | 'credit'>('all')
   const [isOtherExpensesOpen, setIsOtherExpensesOpen] = useState(false)
   const [isFeedExpensesOpen, setIsFeedExpensesOpen] = useState(false)
+  const [isCratesExpensesOpen, setIsCratesExpensesOpen] = useState(false)
   const [isDailyEggStockOpen, setIsDailyEggStockOpen] = useState(false)
 
-  // Reconciliation actual inputs
-  const [countedEggsOverride, setCountedEggsOverride] = useState<number | null>(null)
-  const [actualRevenueInput, setActualRevenueInput] = useState<string>('')
-  const [actualExpensesInput, setActualExpensesInput] = useState<string>('')
-  const [actualSoldEggsOverride, setActualSoldEggsOverride] = useState<number | null>(null)
-
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false)
-
-  // Reset local override inputs on date change
-  useEffect(() => {
-    setCountedEggsOverride(null)
-    setActualRevenueInput('')
-    setActualExpensesInput('')
-    setActualSoldEggsOverride(null)
-  }, [selectedDate])
+  const [expenseFilterTab, setExpenseFilterTab] = useState<'all' | 'feed' | 'crates' | 'other' | 'borrowed'>('all')
 
   const { data: settings } = useQuery({
     queryKey: ['settings'],
@@ -88,14 +73,9 @@ export function EndOfDay() {
       }),
   })
 
-  const { data: closing, isLoading: isClosingLoading } = useQuery({
+  const { data: closing } = useQuery({
     queryKey: ['closing', selectedDate],
     queryFn: () => closingsApi.getClosing(selectedDate),
-  })
-
-  const { data: dailyBook } = useQuery({
-    queryKey: ['daily-book', selectedDate],
-    queryFn: () => summaryApi.getDailyBook(selectedDate),
   })
 
   const markPaidMutation = useMutation({
@@ -118,75 +98,31 @@ export function EndOfDay() {
     },
   })
 
-  // Recorded values from system entries
-  const recordedClosing = closing?.closing_eggs ?? dailyBook?.computed_closing ?? dailyBook?.closing ?? 0
-  const recordedRevenue = Number(closing?.recorded_revenue ?? dailyBook?.recorded_revenue ?? dailyBook?.revenue ?? 0)
-  const recordedExpenses = Number(closing?.recorded_expenses ?? dailyBook?.recorded_expenses ?? dailyBook?.total_expenses ?? 0)
-  const recordedSold = closing?.recorded_sold_eggs ?? dailyBook?.recorded_sold ?? dailyBook?.sold ?? 0
-
-  // Effective actual values with manual overrides
-  const countedEggs = countedEggsOverride ?? closing?.counted_eggs ?? recordedClosing
-  const actualRevenue = actualRevenueInput !== ''
-    ? Number(actualRevenueInput)
-    : (closing?.actual_revenue != null ? Number(closing.actual_revenue) : recordedRevenue)
-  const actualExpenses = actualExpensesInput !== ''
-    ? Number(actualExpensesInput)
-    : (closing?.actual_expenses != null ? Number(closing.actual_expenses) : recordedExpenses)
-  const actualSoldEggs = actualSoldEggsOverride ?? closing?.actual_sold_eggs ?? recordedSold
-
-  const diffEggs = countedEggs - recordedClosing
-  const diffRevenue = Number((actualRevenue - recordedRevenue).toFixed(2))
-  const diffExpenses = Number((actualExpenses - recordedExpenses).toFixed(2))
-  const diffSold = actualSoldEggs - recordedSold
-
-  const closeMutation = useMutation({
-    mutationFn: () =>
-      closingsApi.closeDay(selectedDate, {
-        counted_eggs: countedEggs,
-        actual_revenue: actualRevenue,
-        actual_expenses: actualExpenses,
-        actual_sold_eggs: actualSoldEggs,
-      }),
-    onSuccess: () => {
-      toast('Day closed and locked with actual figures', 'success')
-      setConfirmOpen(false)
-      setCountedEggsOverride(null)
-      setActualRevenueInput('')
-      setActualExpensesInput('')
-      setActualSoldEggsOverride(null)
-      queryClient.invalidateQueries({ queryKey: ['closing', selectedDate] })
-      queryClient.invalidateQueries({ queryKey: ['daily-book', selectedDate] })
-      queryClient.invalidateQueries({ queryKey: ['summary'] })
+  const markExpensePaidMutation = useMutation({
+    mutationFn: (expenseId: number) => expensesApi.markPaid(expenseId),
+    onSuccess: (updated) => {
+      toast(
+        `Borrowed expense (${formatMoney(Number(updated.amount ?? 0))}) marked as Paid and deducted from Money We Have!`,
+        'success',
+      )
       queryClient.invalidateQueries({ queryKey: ['period-summary'] })
-      queryClient.invalidateQueries({ queryKey: ['reports'] })
+      queryClient.invalidateQueries({ queryKey: ['summary'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-book'] })
+      queryClient.invalidateQueries({ queryKey: ['expenses'] })
     },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        'Failed to close day'
-      toast(msg, 'error')
-      setConfirmOpen(false)
-    },
+    onError: () => toast('Failed to mark borrowed expense as paid', 'error'),
   })
 
-  const unlockMutation = useMutation({
-    mutationFn: () => closingsApi.unlockDay(selectedDate),
+  const markExpenseUnpaidMutation = useMutation({
+    mutationFn: (expenseId: number) => expensesApi.markUnpaid(expenseId),
     onSuccess: () => {
-      toast('Day unlocked. You can now re-adjust numbers or entries.', 'success')
-      setUnlockConfirmOpen(false)
-      queryClient.invalidateQueries({ queryKey: ['closing', selectedDate] })
-      queryClient.invalidateQueries({ queryKey: ['daily-book', selectedDate] })
-      queryClient.invalidateQueries({ queryKey: ['summary'] })
+      toast('Borrowed expense reverted to Unpaid (restored to Money We Have).', 'info')
       queryClient.invalidateQueries({ queryKey: ['period-summary'] })
-      queryClient.invalidateQueries({ queryKey: ['reports'] })
+      queryClient.invalidateQueries({ queryKey: ['summary'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-book'] })
+      queryClient.invalidateQueries({ queryKey: ['expenses'] })
     },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        'Failed to unlock day'
-      toast(msg, 'error')
-      setUnlockConfirmOpen(false)
-    },
+    onError: () => toast('Failed to update borrowed expense status', 'error'),
   })
 
   const allBorrowedSales = periodSummary?.borrowed_sales ?? []
@@ -206,19 +142,47 @@ export function EndOfDay() {
     Number((cashRevenue + borrowedUnpaid).toFixed(2)),
   )
   const feedExpenses = Number(periodSummary?.feed_expenses ?? 0)
+  const cratesExpenses = Number(periodSummary?.crates_expenses ?? 0)
   const otherExpenses = Number(periodSummary?.other_expenses ?? 0)
+  const borrowedExpensesPaid = Number(periodSummary?.borrowed_expenses_paid ?? 0)
+  const borrowedExpensesUnpaid = Number(periodSummary?.borrowed_expenses_unpaid ?? 0)
   const totalExpenses = Number(periodSummary?.total_expenses ?? 0)
   const moneyLeftPresent = Number(periodSummary?.money_left_present ?? 0)
   const moneyLeftWithBorrowed = Number((moneyLeftPresent + borrowedUnpaid).toFixed(2))
 
-  const feedExpenseItems = (periodSummary?.expenses ?? []).filter((e) => e.category === 'feed')
-  const otherExpenseItems = (periodSummary?.expenses ?? []).filter((e) => e.category === 'other')
+  const feedExpenseItems = (periodSummary?.expenses ?? []).filter((e) => e.category === 'feed' && e.paid !== false)
+  const cratesExpenseItems = (periodSummary?.expenses ?? []).filter((e) => e.category === 'crates' && e.paid !== false)
+  const otherExpenseItems = (periodSummary?.expenses ?? []).filter((e) => e.category === 'other' && e.paid !== false)
   const unpaidBorrowedOutside = Number(periodSummary?.unpaid_borrowed_outside_period ?? 0)
   const stockAdjustmentEggs = Number(periodSummary?.stock_adjustment_eggs ?? 0)
+
+  const allBorrowedExpenses = periodSummary?.borrowed_expenses ?? []
+  const filteredBorrowedExpenses = allBorrowedExpenses.filter((exp) => {
+    if (borrowedExpenseTab === 'unpaid') return exp.paid === false
+    if (borrowedExpenseTab === 'paid') return exp.paid === true
+    return true
+  })
 
   const filteredBorrowedSales = allBorrowedSales.filter((ev) => {
     if (borrowedTab === 'unpaid') return !ev.paid
     if (borrowedTab === 'paid') return !!ev.paid
+    return true
+  })
+
+  const parseQty = (q?: string | null) => {
+    if (!q) return 0
+    const m = q.match(/(\d+(\.\d+)?)/)
+    return m ? parseFloat(m[1]) : 0
+  }
+
+  const feedBagsTotal = feedExpenseItems.reduce((acc, it) => acc + parseQty(it.quantity), 0)
+  const cratesUnitsTotal = cratesExpenseItems.reduce((acc, it) => acc + parseQty(it.quantity), 0)
+
+  const displayedExpenses = (periodSummary?.expenses ?? []).filter((exp) => {
+    if (expenseFilterTab === 'feed') return exp.category === 'feed'
+    if (expenseFilterTab === 'crates') return exp.category === 'crates'
+    if (expenseFilterTab === 'other') return exp.category === 'other'
+    if (expenseFilterTab === 'borrowed') return exp.category === 'borrowed' || exp.is_borrowed
     return true
   })
 
@@ -240,10 +204,7 @@ export function EndOfDay() {
             <DatePicker
               label="Reference Date:"
               value={selectedDate}
-              onChange={(d) => {
-                setCountedEggsOverride(null)
-                setSearchParams({ date: d })
-              }}
+              onChange={(d) => setSearchParams({ date: d })}
             />
           </div>
         }
@@ -305,85 +266,236 @@ export function EndOfDay() {
               {/* ==================== 2. TOP-MOST HERO: TOTAL AMOUNT OF MONEY LEFT ==================== */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 {/* Card A: Total Money Left (Present Cash) */}
-                <div className="card p-6 border-2 border-success bg-success-bg/30 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold uppercase tracking-wider text-success">
-                        Total Amount of Money Left (Present) · {period.toUpperCase()}
-                      </span>
-                      <div className="w-9 h-9 rounded-lg bg-success-bg text-success flex items-center justify-center">
-                        <Wallet size={20} />
-                      </div>
+                <UnifiedCard
+                  variant="success"
+                  icon={<Wallet size={20} />}
+                  label={`Total Amount of Money Left (Present) · ${period.toUpperCase()}`}
+                  value={formatMoney(moneyLeftPresent)}
+                  helper={
+                    <div className="flex items-center justify-between">
+                      <span>Cash on hand at end of {formatDate(periodSummary.end_date)}</span>
+                      <span className="font-semibold text-success">Cash on Hand</span>
                     </div>
-                    <div
-                      className={`text-display-stat-lg font-extrabold tabular-nums ${
-                        moneyLeftPresent >= 0 ? 'text-ink' : 'text-danger'
-                      }`}
-                    >
-                      {formatMoney(moneyLeftPresent)}
-                    </div>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-success-border/60 text-xs text-muted flex items-center justify-between">
-                    <span>Cash on hand at end of {formatDate(periodSummary.end_date)}</span>
-                    <span className="font-semibold text-success">Cash on Hand</span>
-                  </div>
-                </div>
+                  }
+                />
 
                 {/* Card B: Total Money To Be Had (If Borrowed is Paid) */}
-                <div className="card p-6 border-2 border-brand/60 bg-brand-tint/20 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold uppercase tracking-wider text-brand">
-                        Money Left If Borrowed Is Paid
+                <UnifiedCard
+                  variant="brand"
+                  icon={<TrendingUp size={20} />}
+                  label="Money Left If Borrowed Is Paid"
+                  value={formatMoney(moneyLeftWithBorrowed)}
+                  helper={
+                    <div className="flex items-center justify-between">
+                      <span>
+                        {borrowedUnpaid > 0
+                          ? `Present (${formatMoney(moneyLeftPresent)}) + Borrowed (${formatMoney(borrowedUnpaid)})`
+                          : 'No unpaid credit in this period'}
                       </span>
-                      <div className="w-9 h-9 rounded-lg bg-brand-tint text-brand flex items-center justify-center">
-                        <TrendingUp size={20} />
-                      </div>
+                      <span className="font-semibold text-brand">Projected Total</span>
                     </div>
-                    <div
-                      className={`text-display-stat-lg font-extrabold tabular-nums ${
-                        moneyLeftWithBorrowed >= 0 ? 'text-ink' : 'text-danger'
-                      }`}
-                    >
-                      {formatMoney(moneyLeftWithBorrowed)}
+                  }
+                />
+
+                {/* Card C: Borrowed / Unpaid Balance Owed */}
+                <UnifiedCard
+                  variant="warn"
+                  icon={<Clock size={20} />}
+                  label={`Borrowed Unpaid (${period.toUpperCase()})`}
+                  value={formatMoney(borrowedUnpaid)}
+                  helper={
+                    <div className="flex items-center justify-between">
+                      <span>
+                        {allBorrowedSales.filter((e) => !e.paid).length} unpaid credit sale(s)
+                        {unpaidBorrowedOutside > 0 && (
+                          <span className="block text-[11px] text-warn font-medium mt-0.5">
+                            + {formatMoney(unpaidBorrowedOutside)} owed from earlier
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-semibold text-warn">Credit Pending</span>
                     </div>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-border text-xs text-muted flex items-center justify-between">
-                    <span>
-                      {borrowedUnpaid > 0
-                        ? `Present (${formatMoney(moneyLeftPresent)}) + Borrowed (${formatMoney(borrowedUnpaid)})`
-                        : 'No unpaid credit in this period'}
-                    </span>
-                    <span className="font-semibold text-brand">Projected Total</span>
+                  }
+                />
+              </div>
+
+              {/* ==================== 2B. EXPENSE SUMMARY (BY CATEGORY & PERIOD) ==================== */}
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-title-section text-ink flex items-center gap-2">
+                      <Wallet size={18} className="text-danger" />
+                      Expense Summary · {period.toUpperCase()}
+                    </h2>
+                    <p className="text-xs text-muted">
+                      Number of feed, crates, and other items bought during this {period === 'day' ? 'day' : period === 'week' ? 'week' : period === 'month' ? 'month' : 'selected period'} with total amounts.
+                    </p>
                   </div>
                 </div>
 
-                {/* Card C: Borrowed / Unpaid Balance Owed */}
-                <div className="card p-6 border border-warn/50 bg-warn-bg/30 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold uppercase tracking-wider text-warn">
-                        Borrowed Unpaid ({period.toUpperCase()})
+                {/* 4 Unified Cards for Expense Categories */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Feed Category */}
+                  <UnifiedCard
+                    variant="brand"
+                    icon={<Package size={18} />}
+                    label={`Feed Expenses (${period.toUpperCase()})`}
+                    value={`− ${formatMoney(feedExpenses)}`}
+                    helper={
+                      <span>
+                        <strong className="text-ink font-semibold">
+                          {feedBagsTotal > 0 ? `${feedBagsTotal} bag${feedBagsTotal !== 1 ? 's' : ''}` : '0 bags'}
+                        </strong>{' '}
+                        · {feedExpenseItems.length} purchase{feedExpenseItems.length !== 1 ? 's' : ''}
                       </span>
-                      <div className="w-9 h-9 rounded-lg bg-warn-bg text-warn flex items-center justify-center">
-                        <Clock size={20} />
-                      </div>
-                    </div>
-                    <div className="text-display-stat-lg font-extrabold text-warn tabular-nums">
-                      {formatMoney(borrowedUnpaid)}
-                    </div>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-warn/30 text-xs text-muted flex items-center justify-between">
-                    <span>
-                      {allBorrowedSales.filter((e) => !e.paid).length} unpaid credit sale(s)
-                      {unpaidBorrowedOutside > 0 && (
-                        <span className="block text-[11px] text-warn font-medium mt-0.5">
-                          + {formatMoney(unpaidBorrowedOutside)} owed from earlier
-                        </span>
-                      )}
+                    }
+                  />
+
+                  {/* Crates Category */}
+                  <UnifiedCard
+                    variant="intake"
+                    icon={<Package size={18} />}
+                    label={`Crates Expenses (${period.toUpperCase()})`}
+                    value={`− ${formatMoney(cratesExpenses)}`}
+                    helper={
+                      <span>
+                        <strong className="text-ink font-semibold">
+                          {cratesUnitsTotal > 0 ? `${cratesUnitsTotal} crate${cratesUnitsTotal !== 1 ? 's' : ''}` : '0 crates'}
+                        </strong>{' '}
+                        · {cratesExpenseItems.length} purchase{cratesExpenseItems.length !== 1 ? 's' : ''}
+                      </span>
+                    }
+                  />
+
+                  {/* Others Category */}
+                  <UnifiedCard
+                    variant="neutral"
+                    icon={<Wallet size={18} />}
+                    label={`Other Expenses (${period.toUpperCase()})`}
+                    value={`− ${formatMoney(otherExpenses)}`}
+                    helper={
+                      <span>
+                        <strong className="text-ink font-semibold">
+                          {otherExpenseItems.length} item{otherExpenseItems.length !== 1 ? 's' : ''}
+                        </strong>{' '}
+                        recorded
+                      </span>
+                    }
+                  />
+
+                  {/* Total Period Expenses */}
+                  <UnifiedCard
+                    variant="danger"
+                    icon={<Banknote size={18} />}
+                    label={`Total Spent (${period.toUpperCase()})`}
+                    value={`− ${formatMoney(totalExpenses)}`}
+                    helper={
+                      <span>
+                        Sum of feed, crates &amp; other expenses
+                      </span>
+                    }
+                  />
+                </div>
+
+                {/* Itemized Category Breakdown & Entries Table */}
+                <div className="card overflow-hidden">
+                  <div className="px-6 py-4 border-b border-border bg-canvas/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
+                      <ListFilter size={15} className="text-brand" />
+                      {period.toUpperCase()} Expense Entries Breakdown
                     </span>
-                    <span className="font-semibold text-warn">Credit Pending</span>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {(
+                        [
+                          { key: 'all', label: `All (${(periodSummary.expenses ?? []).length})` },
+                          { key: 'feed', label: `Feed (${feedExpenseItems.length})` },
+                          { key: 'crates', label: `Crates (${cratesExpenseItems.length})` },
+                          { key: 'other', label: `Other (${otherExpenseItems.length})` },
+                          { key: 'borrowed', label: `Borrowed (${allBorrowedExpenses.length})` },
+                        ] as const
+                      ).map((tab) => (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          onClick={() => setExpenseFilterTab(tab.key)}
+                          className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                            expenseFilterTab === tab.key
+                              ? 'bg-brand text-white shadow-sm'
+                              : 'bg-card text-muted hover:text-ink border border-border'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
+
+                  {displayedExpenses.length === 0 ? (
+                    <div className="py-8 text-center text-muted text-sm">
+                      No {expenseFilterTab === 'all' ? '' : expenseFilterTab} expenses recorded for this {period}.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-canvas border-b border-border text-xs font-semibold uppercase tracking-wider text-muted">
+                            <th className="py-3 px-6">Date</th>
+                            <th className="py-3 px-6">Category</th>
+                            <th className="py-3 px-6">Name / Details</th>
+                            <th className="py-3 px-6">Quantity</th>
+                            <th className="py-3 px-6">Logged By</th>
+                            <th className="py-3 px-6 text-right">Amount (GH₵)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border text-sm">
+                          {displayedExpenses.map((exp) => (
+                            <tr key={exp.id} className="hover:bg-canvas/50 transition-colors">
+                              <td className="py-3 px-6 whitespace-nowrap text-muted tabular-nums">
+                                {formatDate(exp.business_date)}
+                              </td>
+                              <td className="py-3 px-6 whitespace-nowrap">
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+                                    exp.category === 'feed'
+                                      ? 'bg-brand/10 text-brand border border-brand/20'
+                                      : exp.category === 'crates'
+                                        ? 'bg-intake-bg text-intake border border-intake/30'
+                                        : exp.category === 'borrowed' || exp.is_borrowed
+                                          ? 'bg-warn-bg text-warn border border-warn/30'
+                                          : 'bg-canvas text-ink border border-border'
+                                  }`}
+                                >
+                                  {exp.category === 'feed'
+                                    ? 'Feed'
+                                    : exp.category === 'crates'
+                                      ? 'Crates'
+                                      : exp.category === 'borrowed' || exp.is_borrowed
+                                        ? 'Borrowed'
+                                        : 'Other'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-6 font-semibold text-ink">
+                                {exp.name}
+                              </td>
+                              <td className="py-3 px-6 text-ink font-medium">
+                                {exp.quantity || '—'}
+                              </td>
+                              <td className="py-3 px-6 whitespace-nowrap text-xs text-muted">
+                                <span className="inline-flex items-center gap-1">
+                                  <UserCheck size={12} className="text-brand" />
+                                  {exp.created_by_name}
+                                </span>
+                              </td>
+                              <td className="py-3 px-6 text-right font-bold text-danger tabular-nums whitespace-nowrap">
+                                − {formatMoney(Number(exp.amount))}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -505,6 +617,77 @@ export function EndOfDay() {
                       )}
                     </div>
 
+                    {/* Crates Expenses (Collapsible Dropdown) */}
+                    <div className="py-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setIsCratesExpensesOpen((prev) => !prev)}
+                        className="w-full flex items-center justify-between text-left py-1.5 px-2 -mx-2 rounded-lg hover:bg-canvas transition-colors group cursor-pointer focus:outline-none focus:ring-1 focus:ring-brand/40"
+                        aria-expanded={isCratesExpensesOpen}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-ink group-hover:text-brand transition-colors">
+                            Crates Expenses
+                          </span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-brand/10 text-brand border border-brand/20">
+                            {cratesExpenseItems.length} {cratesExpenseItems.length === 1 ? 'item' : 'items'}
+                            {isCratesExpensesOpen ? (
+                              <ChevronUp size={13} className="text-brand" />
+                            ) : (
+                              <ChevronDown size={13} className="text-brand" />
+                            )}
+                          </span>
+                        </div>
+                        <span className="font-semibold text-danger tabular-nums">
+                          − {formatMoney(cratesExpenses)}
+                        </span>
+                      </button>
+
+                      {isCratesExpensesOpen && (
+                        <div className="mt-2.5 p-3 rounded-lg bg-canvas border border-border/80 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted border-b border-border/60 pb-1.5">
+                            <span>Crates Item</span>
+                            <span>Amount</span>
+                          </div>
+                          {cratesExpenseItems.length === 0 ? (
+                            <p className="text-xs text-muted italic py-1 text-center">
+                              No crates expenses recorded for this period.
+                            </p>
+                          ) : (
+                            <div className="divide-y divide-border/50 text-xs">
+                              {cratesExpenseItems.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="py-2 first:pt-0.5 last:pb-0.5 flex items-start justify-between gap-3"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-bold text-ink capitalize text-sm">
+                                        {item.name}
+                                      </span>
+                                      {item.quantity && (
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-card border border-border text-muted">
+                                          Qty: {item.quantity}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[11px] text-muted flex items-center gap-2 mt-0.5">
+                                      <span>{formatDate(item.business_date)}</span>
+                                      <span>•</span>
+                                      <span>Logged by {item.created_by_name}</span>
+                                    </div>
+                                  </div>
+                                  <div className="font-bold text-danger tabular-nums whitespace-nowrap pt-0.5 text-sm">
+                                    − {formatMoney(Number(item.amount))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     {/* Other Expenses (Collapsible Dropdown showing names like Food) */}
                     <div className="py-2.5">
                       <button
@@ -576,12 +759,37 @@ export function EndOfDay() {
                       )}
                     </div>
 
+                    {borrowedExpensesPaid > 0 && (
+                      <div className="py-3 flex items-center justify-between">
+                        <span className="font-medium text-ink">Borrowed Expenses (Paid &amp; Deducted)</span>
+                        <span className="font-semibold text-danger tabular-nums">
+                          − {formatMoney(borrowedExpensesPaid)}
+                        </span>
+                      </div>
+                    )}
+
                     <div className="py-3 flex items-center justify-between">
-                      <span className="font-semibold text-ink">Total Expenses</span>
+                      <span className="font-semibold text-ink">Total Expenses (Paid)</span>
                       <span className="font-bold text-danger tabular-nums">
                         − {formatMoney(totalExpenses)}
                       </span>
                     </div>
+
+                    {borrowedExpensesUnpaid > 0 && (
+                      <div className="py-3 flex items-center justify-between bg-warn-bg/30 px-3 -mx-3 rounded-lg border border-warn/30">
+                        <div>
+                          <span className="font-semibold text-warn block">
+                            Borrowed Expenses (Unpaid — Not Deducted)
+                          </span>
+                          <span className="text-xs text-muted">
+                            Sits here until marked as Paid below
+                          </span>
+                        </div>
+                        <span className="font-bold text-warn tabular-nums">
+                          {formatMoney(borrowedExpensesUnpaid)}
+                        </span>
+                      </div>
+                    )}
 
                     <div className="pt-4 flex items-center justify-between">
                       <div>
@@ -1150,9 +1358,19 @@ export function EndOfDay() {
                                         <ArrowUpRight size={13} /> Feed Expense
                                       </span>
                                     )}
+                                    {tx.kind === 'expense_crates' && (
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-intake-bg text-intake border border-intake/30">
+                                        <ArrowUpRight size={13} /> Crates Expense
+                                      </span>
+                                    )}
                                     {tx.kind === 'expense_other' && (
                                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-danger-bg text-danger border border-danger-border">
                                         <ArrowUpRight size={13} /> Other Expense
+                                      </span>
+                                    )}
+                                    {tx.kind === 'expense_borrowed' && (
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-warn-bg text-warn border border-warn/40">
+                                        <Clock size={13} /> Borrowed Expense
                                       </span>
                                     )}
                                   </td>
@@ -1180,8 +1398,11 @@ export function EndOfDay() {
                                     {tx.kind === 'sale_borrowed' && (
                                       <span className="text-warn">{formatMoney(Number(tx.amount))} (Pending)</span>
                                     )}
-                                    {tx.kind.startsWith('expense_') && (
+                                    {tx.kind.startsWith('expense_') && tx.paid && (
                                       <span className="text-danger">− {formatMoney(Number(tx.amount))}</span>
+                                    )}
+                                    {tx.kind.startsWith('expense_') && !tx.paid && (
+                                      <span className="text-warn">{formatMoney(Number(tx.amount))} (Unpaid)</span>
                                     )}
                                   </td>
                                 </tr>
@@ -1329,331 +1550,171 @@ export function EndOfDay() {
                   </div>
                 )}
               </div>
+
+              {/* ==================== 4B. ADMIN SECTION: BORROWED EXPENSES MANAGEMENT ==================== */}
+              <div className="card overflow-hidden">
+                <div className="px-6 py-4 border-b border-border bg-warn-bg/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-title-section text-ink flex items-center gap-2">
+                      <Clock size={18} className="text-warn" />
+                      Borrowed Expenses Management (Admin Only) · {period.toUpperCase()}
+                    </h2>
+                    <p className="text-xs text-muted">
+                      Borrowed expenses sit here and are <strong>not subtracted</strong> from Money We Have until you click <strong>Mark as Paid</strong>.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {(
+                      [
+                        { label: 'Unpaid (Not Deducted)', value: 'unpaid' },
+                        { label: 'Paid (Deducted)', value: 'paid' },
+                        { label: 'All Borrowed Expenses', value: 'all' },
+                      ] as const
+                    ).map((tab) => (
+                      <button
+                        key={tab.value}
+                        type="button"
+                        onClick={() => setBorrowedExpenseTab(tab.value)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                          borrowedExpenseTab === tab.value
+                            ? 'bg-brand text-white'
+                            : 'bg-card text-muted hover:text-ink border border-border'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {filteredBorrowedExpenses.length === 0 ? (
+                  <div className="py-10 text-center text-muted text-sm">
+                    {borrowedExpenseTab === 'unpaid'
+                      ? 'No unpaid borrowed expenses for this period!'
+                      : 'No borrowed expenses found for this filter.'}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-canvas border-b border-border">
+                          <th className="py-3 px-6 text-xs font-semibold uppercase tracking-wider text-muted">
+                            Date
+                          </th>
+                          <th className="py-3 px-6 text-xs font-semibold uppercase tracking-wider text-muted">
+                            Item / Description
+                          </th>
+                          <th className="py-3 px-6 text-xs font-semibold uppercase tracking-wider text-muted">
+                            Recorded By
+                          </th>
+                          <th className="py-3 px-6 text-xs font-semibold uppercase tracking-wider text-muted">
+                            Quantity
+                          </th>
+                          <th className="py-3 px-6 text-xs font-semibold uppercase tracking-wider text-muted text-right">
+                            Amount
+                          </th>
+                          <th className="py-3 px-6 text-xs font-semibold uppercase tracking-wider text-muted">
+                            Status
+                          </th>
+                          <th className="py-3 px-6 text-xs font-semibold uppercase tracking-wider text-muted text-right">
+                            Admin Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border text-sm">
+                        {filteredBorrowedExpenses.map((exp) => (
+                          <tr key={exp.id} className="hover:bg-canvas/60 transition-colors">
+                            <td className="py-3.5 px-6 text-muted tabular-nums whitespace-nowrap">
+                              <span className="font-medium text-ink">{formatDate(exp.business_date)}</span>
+                            </td>
+                            <td className="py-3.5 px-6 font-semibold text-ink">
+                              {exp.name}
+                            </td>
+                            <td className="py-3.5 px-6 text-muted whitespace-nowrap">
+                              {exp.created_by_name || `User #${exp.created_by}`}
+                            </td>
+                            <td className="py-3.5 px-6 text-ink tabular-nums whitespace-nowrap">
+                              {exp.quantity || '—'}
+                            </td>
+                            <td className="py-3.5 px-6 text-right font-bold text-ink tabular-nums whitespace-nowrap">
+                              {formatMoney(Number(exp.amount))}
+                            </td>
+                            <td className="py-3.5 px-6 whitespace-nowrap">
+                              {exp.paid ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success-bg text-success border border-success-border">
+                                  <Check size={12} />
+                                  Paid (Deducted)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-warn-bg text-warn border border-warn/40">
+                                  <Clock size={12} />
+                                  Borrowed (Unpaid)
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-6 text-right whitespace-nowrap">
+                              {!exp.paid ? (
+                                <button
+                                  type="button"
+                                  disabled={markExpensePaidMutation.isPending}
+                                  onClick={() => markExpensePaidMutation.mutate(exp.id)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-success text-white hover:opacity-90 text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
+                                >
+                                  <CheckCircle2 size={14} />
+                                  Mark as Paid
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={markExpenseUnpaidMutation.isPending}
+                                  onClick={() => markExpenseUnpaidMutation.mutate(exp.id)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-card border border-border text-muted hover:text-ink text-xs font-semibold transition-all disabled:opacity-50"
+                                >
+                                  Revert Unpaid
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </>
           )}
 
-          {/* ==================== 5. DAILY RECONCILIATION & LOCK ==================== */}
-          {!isClosingLoading && closing && (
-            <div className="card overflow-hidden">
-              <div className="px-6 py-5 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-canvas/40">
-                <div>
-                  <h2 className="text-title-section text-ink flex items-center gap-2">
-                    <Sliders size={18} className="text-brand" />
-                    Single Day Reconciliation &amp; Lock · {formatDate(selectedDate)}
-                  </h2>
-                  <p className="text-helper-xs text-muted mt-0.5">
-                    Physical count and actual figures are recorded for a specific day: <strong>{formatDate(selectedDate)}</strong> (Reference Date). Locking updates the real values for this day and anchors opening stock forward.
-                  </p>
-                </div>
-                {closing.locked ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-success-bg text-success border border-success-border self-start sm:self-auto">
-                    <Lock size={12} />
-                    Locked &amp; Reconciled
+          {/* ==================== 5. DAILY RECONCILIATION & LOCK NOTICE ==================== */}
+          <div className="card p-6 border-2 border-brand/30 bg-brand-tint/15 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Sliders size={20} className="text-brand" />
+                <h3 className="text-body-medium font-bold text-ink">
+                  Daily Reconciliation &amp; Lock · {formatDate(selectedDate)}
+                </h3>
+                {closing?.locked ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success-bg text-success border border-success-border">
+                    <Lock size={12} /> Locked &amp; Reconciled
                   </span>
                 ) : (
-                  <span className="badge-neutral self-start sm:self-auto">Open for Reconciliation</span>
+                  <span className="badge-neutral">Open for Reconciliation</span>
                 )}
               </div>
-
-              <div className="p-6 space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Field 1: Physical Storeroom Closing Stock */}
-                  <div className="p-5 rounded-lg border border-border bg-canvas/30 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
-                          <Package size={15} className="text-brand" />
-                          1. Physical Eggs in Storeroom
-                        </span>
-                        <p className="text-helper-xs text-muted mt-0.5">
-                          Recorded closing stock: <strong className="text-ink">{formatEggs(recordedClosing, perCrate)}</strong> ({recordedClosing} eggs)
-                        </p>
-                      </div>
-                      <span className="text-xs font-mono text-muted bg-canvas px-2 py-0.5 rounded border border-border">
-                        Storeroom Count
-                      </span>
-                    </div>
-
-                    <EggQuantityInput
-                      value={countedEggs}
-                      onChange={setCountedEggsOverride}
-                      perCrate={perCrate}
-                      disabled={closing.locked}
-                    />
-
-                    {diffEggs === 0 ? (
-                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success">
-                        <CheckCircle2 size={15} className="flex-shrink-0" />
-                        <span>Matches recorded system stock ({recordedClosing} eggs).</span>
-                      </div>
-                    ) : diffEggs < 0 ? (
-                      <div className="p-2.5 rounded bg-danger-bg border border-danger/30 flex items-center gap-2 text-xs text-danger font-medium">
-                        <XCircle size={15} className="flex-shrink-0" />
-                        <span>Short by {formatEggs(Math.abs(diffEggs), perCrate)} ({Math.abs(diffEggs)} eggs vs recorded)</span>
-                      </div>
-                    ) : (
-                      <div className="p-2.5 rounded bg-warn-bg border border-warn/30 flex items-center gap-2 text-xs text-warn font-medium">
-                        <AlertTriangle size={15} className="flex-shrink-0" />
-                        <span>Over by +{formatEggs(diffEggs, perCrate)} (+{diffEggs} eggs vs recorded)</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Field 2: Actual Total Cash Gotten */}
-                  <div className="p-5 rounded-lg border border-border bg-canvas/30 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
-                          <Banknote size={15} className="text-success" />
-                          2. Actual Cash Gotten (Revenue)
-                        </span>
-                        <p className="text-helper-xs text-muted mt-0.5">
-                          Recorded cash revenue: <strong className="text-ink">{formatMoney(recordedRevenue)}</strong>
-                        </p>
-                      </div>
-                      <span className="text-xs font-mono text-muted bg-canvas px-2 py-0.5 rounded border border-border">
-                        Cash Till
-                      </span>
-                    </div>
-
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">
-                        GH₵
-                      </span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        disabled={closing.locked}
-                        value={
-                          actualRevenueInput !== ''
-                            ? actualRevenueInput
-                            : closing.locked
-                            ? (closing.actual_revenue != null ? String(closing.actual_revenue) : String(recordedRevenue))
-                            : (closing?.actual_revenue != null ? String(closing.actual_revenue) : (actualRevenueInput !== '' ? actualRevenueInput : ''))
-                        }
-                        onChange={(e) => setActualRevenueInput(e.target.value)}
-                        placeholder={String(recordedRevenue)}
-                        className="input-field pl-12 font-bold tabular-nums w-full"
-                      />
-                    </div>
-
-                    {diffRevenue === 0 ? (
-                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success">
-                        <CheckCircle2 size={15} className="flex-shrink-0" />
-                        <span>Matches recorded cash revenue ({formatMoney(recordedRevenue)}).</span>
-                      </div>
-                    ) : diffRevenue > 0 ? (
-                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success font-medium">
-                        <CheckCircle2 size={15} className="flex-shrink-0" />
-                        <span>Extra cash: +{formatMoney(diffRevenue)} above recorded sales</span>
-                      </div>
-                    ) : (
-                      <div className="p-2.5 rounded bg-danger-bg border border-danger/30 flex items-center gap-2 text-xs text-danger font-medium">
-                        <XCircle size={15} className="flex-shrink-0" />
-                        <span>Short by {formatMoney(Math.abs(diffRevenue))} below recorded sales</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Field 3: Actual Total Expenses Made */}
-                  <div className="p-5 rounded-lg border border-border bg-canvas/30 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
-                          <Wallet size={15} className="text-danger" />
-                          3. Actual Expenses Made
-                        </span>
-                        <p className="text-helper-xs text-muted mt-0.5">
-                          Recorded expenses: <strong className="text-ink">{formatMoney(recordedExpenses)}</strong>
-                        </p>
-                      </div>
-                      <span className="text-xs font-mono text-muted bg-canvas px-2 py-0.5 rounded border border-border">
-                        Total Spent
-                      </span>
-                    </div>
-
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted">
-                        GH₵
-                      </span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        disabled={closing.locked}
-                        value={
-                          actualExpensesInput !== ''
-                            ? actualExpensesInput
-                            : closing.locked
-                            ? (closing.actual_expenses != null ? String(closing.actual_expenses) : String(recordedExpenses))
-                            : (closing?.actual_expenses != null ? String(closing.actual_expenses) : (actualExpensesInput !== '' ? actualExpensesInput : ''))
-                        }
-                        onChange={(e) => setActualExpensesInput(e.target.value)}
-                        placeholder={String(recordedExpenses)}
-                        className="input-field pl-12 font-bold tabular-nums w-full"
-                      />
-                    </div>
-
-                    {diffExpenses === 0 ? (
-                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success">
-                        <CheckCircle2 size={15} className="flex-shrink-0" />
-                        <span>Matches recorded expenses ({formatMoney(recordedExpenses)}).</span>
-                      </div>
-                    ) : diffExpenses > 0 ? (
-                      <div className="p-2.5 rounded bg-warn-bg border border-warn/30 flex items-center gap-2 text-xs text-warn font-medium">
-                        <AlertTriangle size={15} className="flex-shrink-0" />
-                        <span>Extra expenses: +{formatMoney(diffExpenses)} above recorded</span>
-                      </div>
-                    ) : (
-                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success font-medium">
-                        <CheckCircle2 size={15} className="flex-shrink-0" />
-                        <span>Lower expenses: −{formatMoney(Math.abs(diffExpenses))} vs recorded</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Field 4: Actual Total Eggs Sold */}
-                  <div className="p-5 rounded-lg border border-border bg-canvas/30 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
-                          <Package size={15} className="text-brand" />
-                          4. Actual Eggs Sold Today
-                        </span>
-                        <p className="text-helper-xs text-muted mt-0.5">
-                          Recorded eggs sold: <strong className="text-ink">{formatEggs(recordedSold, perCrate)}</strong> ({recordedSold} eggs)
-                        </p>
-                      </div>
-                      <span className="text-xs font-mono text-muted bg-canvas px-2 py-0.5 rounded border border-border">
-                        Sold Eggs
-                      </span>
-                    </div>
-
-                    <EggQuantityInput
-                      value={actualSoldEggs}
-                      onChange={setActualSoldEggsOverride}
-                      perCrate={perCrate}
-                      disabled={closing.locked}
-                    />
-
-                    {diffSold === 0 ? (
-                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success">
-                        <CheckCircle2 size={15} className="flex-shrink-0" />
-                        <span>Matches recorded sold eggs ({recordedSold} eggs).</span>
-                      </div>
-                    ) : diffSold > 0 ? (
-                      <div className="p-2.5 rounded bg-success-bg border border-success/30 flex items-center gap-2 text-xs text-success font-medium">
-                        <CheckCircle2 size={15} className="flex-shrink-0" />
-                        <span>Extra sold: +{formatEggs(diffSold, perCrate)} (+{diffSold} eggs vs recorded)</span>
-                      </div>
-                    ) : (
-                      <div className="p-2.5 rounded bg-warn-bg border border-warn/30 flex items-center gap-2 text-xs text-warn font-medium">
-                        <AlertTriangle size={15} className="flex-shrink-0" />
-                        <span>Fewer sold: −{formatEggs(Math.abs(diffSold), perCrate)} ({diffSold} eggs vs recorded)</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Bottom Action Footer */}
-                <div className="pt-4 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  {closing.locked ? (
-                    <>
-                      <div className="text-xs text-muted flex items-center gap-2">
-                        <Lock size={16} className="text-success flex-shrink-0" />
-                        <span>
-                          This day is locked with reconciled actuals. Physical stock anchors future opening stock, and cash differences flow into Money We Have.
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setUnlockConfirmOpen(true)}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md border border-warn text-warn hover:bg-warn-bg font-semibold text-xs transition-colors whitespace-nowrap self-end sm:self-auto"
-                      >
-                        <Unlock size={14} />
-                        Re-adjust / Unlock Day
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-xs text-muted">
-                        Review the 4 actual values above. Locking will override this day&apos;s figures in the Daily Book and anchor future storeroom stock.
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmOpen(true)}
-                        className="btn-primary whitespace-nowrap self-end sm:self-auto"
-                      >
-                        <Lock size={16} />
-                        Close &amp; Lock Day with Actuals
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
+              <p className="text-xs text-muted max-w-xl">
+                Daily reconciliation has moved to <strong>Manual Entry</strong>. Go to Manual Entry to record physical storeroom eggs, actual cash, actual expenses, and lock or unlock the day.
+              </p>
             </div>
-          )}
+            <Link
+              to={`/beginning-entry?date=${selectedDate}`}
+              className="btn-primary whitespace-nowrap self-start sm:self-auto inline-flex items-center gap-2"
+            >
+              <Sliders size={16} />
+              Reconcile &amp; Lock in Manual Entry
+            </Link>
+          </div>
         </div>
       </div>
-
-      {/* Dialog 1: Confirm Lock with Actuals */}
-      <ConfirmDialog
-        isOpen={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        onConfirm={() => closeMutation.mutate()}
-        title="Lock Day with Reconciled Actuals"
-        message={
-          <div className="space-y-3 text-sm text-left">
-            <p className="text-muted">
-              Locking <strong>{formatDate(selectedDate)}</strong> will record the following authoritative actuals:
-            </p>
-            <div className="p-3 bg-canvas rounded border border-border space-y-1.5 font-medium text-xs">
-              <div className="flex justify-between">
-                <span className="text-muted">Physical Storeroom Closing:</span>
-                <span className="font-bold text-ink">{formatEggs(countedEggs, perCrate)} ({countedEggs} eggs)</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted">Actual Cash Gotten:</span>
-                <span className="font-bold text-success">{formatMoney(actualRevenue)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted">Actual Expenses Made:</span>
-                <span className="font-bold text-danger">{formatMoney(actualExpenses)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted">Actual Eggs Sold:</span>
-                <span className="font-bold text-brand">{formatEggs(actualSoldEggs, perCrate)} ({actualSoldEggs} eggs)</span>
-              </div>
-            </div>
-            <p className="text-helper-xs text-muted">
-              Staff will no longer be able to record or edit entries for this date. You can unlock and re-adjust at any time if needed.
-            </p>
-          </div>
-        }
-        confirmLabel="Lock Day with Actuals"
-        isLoading={closeMutation.isPending}
-      />
-
-      {/* Dialog 2: Confirm Unlock / Re-adjust */}
-      <ConfirmDialog
-        isOpen={unlockConfirmOpen}
-        onClose={() => setUnlockConfirmOpen(false)}
-        onConfirm={() => unlockMutation.mutate()}
-        title="Unlock Day for Re-adjustment"
-        message={
-          <div className="space-y-2 text-sm text-left">
-            <p>
-              Are you sure you want to unlock <strong>{formatDate(selectedDate)}</strong>?
-            </p>
-            <p className="text-xs text-muted">
-              This will re-open the day so you can modify actual figures or allow staff to adjust entries. Remember to lock again when finished.
-            </p>
-          </div>
-        }
-        confirmLabel="Unlock Day"
-        isLoading={unlockMutation.isPending}
-      />
     </>
   )
 }

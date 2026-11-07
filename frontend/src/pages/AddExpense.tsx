@@ -45,12 +45,23 @@ export function AddExpense() {
     mutationFn: () =>
       expensesApi.createExpense({
         category,
-        name: category === 'feed' ? 'Feed' : name.trim(),
+        name:
+          category === 'feed'
+            ? name.trim() || 'Feed'
+            : category === 'crates'
+              ? name.trim() || 'Crates'
+              : name.trim(),
         quantity: quantity.trim() || undefined,
         amount: parseFloat(amount),
+        is_borrowed: category === 'borrowed',
       }),
     onSuccess: (res) => {
-      toast('Expense saved', 'success')
+      toast(
+        category === 'borrowed'
+          ? 'Borrowed expense saved (not deducted until marked as paid in Summary)'
+          : 'Expense saved',
+        'success',
+      )
       setName('')
       setQuantity('')
       setAmount('')
@@ -93,8 +104,8 @@ export function AddExpense() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const newErrors: { name?: string; amount?: string } = {}
-    if (category === 'other' && !name.trim()) {
-      newErrors.name = 'Item name is required for Other expenses'
+    if ((category === 'other' || category === 'borrowed') && !name.trim()) {
+      newErrors.name = `Item name is required for ${category === 'borrowed' ? 'Borrowed' : 'Other'} expenses`
     }
     const parsedAmount = parseFloat(amount)
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -172,7 +183,7 @@ export function AddExpense() {
               {/* Segmented Category Control */}
               <div>
                 <label className="block text-label-sm text-ink mb-2">Expense Category</label>
-                <div className="grid grid-cols-2 gap-2 p-1 bg-canvas rounded-md border border-border">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1 bg-canvas rounded-md border border-border">
                   <button
                     type="button"
                     onClick={() => {
@@ -189,6 +200,20 @@ export function AddExpense() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => {
+                      setCategory('crates')
+                      setErrors((p) => ({ ...p, name: undefined }))
+                    }}
+                    className={`h-10 rounded text-label-sm transition-all ${
+                      category === 'crates'
+                        ? 'bg-card text-brand shadow-card border border-border'
+                        : 'text-muted hover:text-ink'
+                    }`}
+                  >
+                    Crates
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setCategory('other')}
                     className={`h-10 rounded text-label-sm transition-all ${
                       category === 'other'
@@ -198,11 +223,30 @@ export function AddExpense() {
                   >
                     Other Expense
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setCategory('borrowed')}
+                    className={`h-10 rounded text-label-sm transition-all ${
+                      category === 'borrowed'
+                        ? 'bg-warn text-white shadow-card border border-warn'
+                        : 'text-warn hover:text-ink'
+                    }`}
+                  >
+                    Borrowed Expense
+                  </button>
                 </div>
               </div>
 
-              {/* Item Name (Required for Other) */}
-              {category === 'other' && (
+              {category === 'borrowed' && (
+                <div className="bg-warn-bg/40 border border-warn/40 rounded-md px-3.5 py-2.5 text-xs text-ink">
+                  <strong className="text-warn">Borrowed Expense (Not Paid Yet):</strong> This expense will{' '}
+                  <strong>not</strong> be subtracted from Money We Have until the Admin marks it as{' '}
+                  <strong>Paid</strong> in the Summary page.
+                </div>
+              )}
+
+              {/* Item Name (Required for Other and Borrowed) */}
+              {(category === 'other' || category === 'borrowed') && (
                 <div>
                   <label htmlFor="expense-name" className="block text-label-sm text-ink mb-1.5">
                     Item / Description <span className="text-danger">*</span>
@@ -210,7 +254,11 @@ export function AddExpense() {
                   <input
                     id="expense-name"
                     type="text"
-                    placeholder="e.g. Fuel, Egg trays, Medication"
+                    placeholder={
+                      category === 'borrowed'
+                        ? 'e.g. Feed on credit, Crates on credit, Medication'
+                        : 'e.g. Fuel, Food, Medication'
+                    }
                     value={name}
                     onChange={(e) => {
                       setName(e.target.value)
@@ -230,7 +278,13 @@ export function AddExpense() {
                 <input
                   id="expense-qty"
                   type="text"
-                  placeholder={category === 'feed' ? 'e.g. 5 bags (50kg)' : 'e.g. 10 litres / 2 packs'}
+                  placeholder={
+                    category === 'feed'
+                      ? 'e.g. 5 bags (50kg)'
+                      : category === 'crates'
+                        ? 'e.g. 50 empty crates'
+                        : 'e.g. 10 litres / 2 packs'
+                  }
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
                   className="input-base"

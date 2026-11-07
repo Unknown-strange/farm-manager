@@ -1,8 +1,10 @@
 """Application configuration loaded from environment variables."""
 
 from functools import lru_cache
-from typing import Set, Dict, List
+from typing import Dict, List, Set
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 from app.permissions import ALL_PERMISSIONS
 
 

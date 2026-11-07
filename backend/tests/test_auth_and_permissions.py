@@ -1,7 +1,8 @@
 """Tests for authentication and role-based permissions."""
 
-from app.config import Settings
 import pytest
+
+from app.config import Settings
 
 
 def test_env_wildcard_permission():

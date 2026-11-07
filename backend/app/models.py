@@ -1,24 +1,26 @@
 """SQLAlchemy 2.0 ORM models corresponding to DATABASE_FLOW.md."""
 
-from datetime import datetime, date
+from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, Any
+from typing import Any, Optional
+
 from sqlalchemy import (
     BigInteger,
-    SmallInteger,
-    Integer,
-    Numeric,
-    Text,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
-    CheckConstraint,
     Index,
+    Integer,
+    Numeric,
+    SmallInteger,
+    Text,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.database import Base
 
 
@@ -92,6 +94,10 @@ class Expense(Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     quantity: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    is_borrowed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    paid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    paid_by: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=True)
+    paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     business_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     created_by: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)
     voided: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -103,9 +109,10 @@ class Expense(Base):
 
     creator: Mapped["User"] = relationship("User", foreign_keys=[created_by])
     voider: Mapped[Optional["User"]] = relationship("User", foreign_keys=[voided_by])
+    payer: Mapped[Optional["User"]] = relationship("User", foreign_keys=[paid_by])
 
     __table_args__ = (
-        CheckConstraint("category IN ('feed', 'other')", name="check_expense_category"),
+        CheckConstraint("category IN ('feed', 'crates', 'other', 'borrowed')", name="check_expense_category"),
         CheckConstraint("amount >= 0", name="check_expense_amount_positive"),
         Index("ix_expenses_business_date_category", "business_date", "category"),
         Index("ix_expenses_created_by_business_date", "created_by", "business_date"),

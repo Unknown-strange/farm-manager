@@ -4,16 +4,16 @@ import csv
 import io
 from datetime import date, timedelta
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import select
 
 from app.database import get_db
-from app.models import EggEvent, User
-from app.schemas import ReportRow
-from app.security import require_permission, get_business_date
+from app.models import User
 from app.permissions import REPORTS_READ
+from app.schemas import ReportRow
+from app.security import get_business_date, require_permission
 from app.services.book import calculate_daily_book
 
 router = APIRouter(prefix="/reports", tags=["reports"])

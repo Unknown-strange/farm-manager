@@ -7,10 +7,10 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from sqlalchemy import select
+
 from app.config import settings
-from app.database import SessionLocal, engine, Base
-from app.models import User, Setting
-import app.models  # ensure all models are registered
+from app.database import Base, SessionLocal, engine
+from app.models import Setting, User
 from app.security import hash_password
 
 

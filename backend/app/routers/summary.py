@@ -4,18 +4,19 @@ import calendar
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Optional
-from fastapi import APIRouter, Depends, Query, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func, case, and_
 
 from app.database import get_db
 from app.models import EggEvent, User
+from app.permissions import SUMMARY_READ_ALL, SUMMARY_READ_OWN
 from app.schemas import DailyBookResponse, PeriodSummaryResponse, StaffSummaryResponse
 from app.security import (
-    require_permission,
     get_business_date,
+    require_permission,
 )
-from app.permissions import SUMMARY_READ_ALL, SUMMARY_READ_OWN
 from app.services.book import calculate_daily_book, calculate_period_summary
 
 router = APIRouter(prefix="/summary", tags=["summary"])

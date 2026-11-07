@@ -1,19 +1,18 @@
 """Authentication router: login and current user profile."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.database import get_db
 from app.models import User
-from app.schemas import LoginRequest, ChangePasswordRequest, TokenResponse, MeResponse
+from app.schemas import ChangePasswordRequest, LoginRequest, MeResponse, TokenResponse
 from app.security import (
-    hash_password,
-    verify_password,
     create_access_token,
     get_current_user,
     get_user_permissions,
+    hash_password,
+    verify_password,
 )
 from app.services.audit import record_audit
 

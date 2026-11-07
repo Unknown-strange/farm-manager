@@ -1,8 +1,9 @@
 """Tests for egg events, idempotency, negative stock protection, and daily book math."""
 
 from datetime import date
-from app.models import DailyClosing, User
-from app.security import hash_password, create_access_token, get_business_date
+
+from app.models import User
+from app.security import create_access_token, get_business_date, hash_password
 
 
 def test_egg_receipt_and_stock_flow(client, staff_headers):
@@ -881,5 +882,79 @@ def test_manual_entry_change_opening_day_eggs_and_present_available_eggs(client,
     book_d2_after = client.get(f"/summary?date={d2}", headers=admin_headers).json()
     assert book_d2_after["closing"] == 1500
     assert book_d2_after["opening"] == 1500 - 516  # 984 opening + 516 received = 1500 available now
+
+
+def test_crates_and_borrowed_expenses_lifecycle_and_cash_flow(client, admin_headers):
+    """Verifies that:
+    1. 'crates' expense is recorded and deducted immediately from Money We Have.
+    2. 'borrowed' expense is NOT deducted from Money We Have while unpaid (paid=False).
+    3. Marking a borrowed expense as paid (POST /expenses/{id}/pay) deducts it from Money We Have.
+    4. Reverting it to unpaid (POST /expenses/{id}/unpay) restores Money We Have."""
+    d = "2026-11-10"
+
+    # Start with GH₵ 1,000.00 beginning money
+    client.patch(
+        "/settings",
+        json={"beginning_money": 1000.00, "beginning_eggs": 300},
+        headers=admin_headers,
+    )
+
+    # 1. Record a Crates expense of GH₵ 150.00
+    crates_res = client.post(
+        "/expenses",
+        json={"category": "crates", "quantity": "50 empty crates", "amount": 150.00, "business_date": d},
+        headers=admin_headers,
+    )
+    assert crates_res.status_code == 201
+
+    # 2. Record a Borrowed Expense of GH₵ 400.00 (e.g. Feed on credit)
+    borrowed_res = client.post(
+        "/expenses",
+        json={"category": "borrowed", "name": "Feed on credit", "quantity": "4 bags", "amount": 400.00, "business_date": d},
+        headers=admin_headers,
+    )
+    assert borrowed_res.status_code == 201
+    borrowed_id = borrowed_res.json()["id"]
+
+    # 3. Check Daily Book & Period Summary BEFORE marking borrowed expense as paid
+    book1 = client.get(f"/summary?date={d}", headers=admin_headers).json()
+    assert float(book1["crates"]) == 150.00
+    assert float(book1["borrowed_expenses_unpaid"]) == 400.00
+    assert float(book1["borrowed_expenses_paid"]) == 0.00
+    assert float(book1["total_expenses"]) == 150.00  # Only paid expenses subtracted!
+
+    ps1 = client.get(f"/summary/period?period=week&date={d}", headers=admin_headers).json()
+    assert float(ps1["crates_expenses"]) == 150.00
+    assert float(ps1["borrowed_expenses_unpaid"]) == 400.00
+    assert float(ps1["total_expenses"]) == 150.00
+    assert float(ps1["money_left_present"]) == 850.00  # 1000 - 150 = 850 (borrowed 400 NOT subtracted)
+    assert len(ps1["borrowed_expenses"]) == 1
+    assert ps1["borrowed_expenses"][0]["paid"] is False
+
+    # 4. Admin marks Borrowed Expense as PAID in Summary
+    pay_res = client.post(f"/expenses/{borrowed_id}/pay", headers=admin_headers)
+    assert pay_res.status_code == 200
+    assert pay_res.json()["paid"] is True
+
+    book2 = client.get(f"/summary?date={d}", headers=admin_headers).json()
+    assert float(book2["borrowed_expenses_unpaid"]) == 0.00
+    assert float(book2["borrowed_expenses_paid"]) == 400.00
+    assert float(book2["total_expenses"]) == 550.00  # 150 + 400 = 550
+
+    ps2 = client.get(f"/summary/period?period=week&date={d}", headers=admin_headers).json()
+    assert float(ps2["borrowed_expenses_unpaid"]) == 0.00
+    assert float(ps2["borrowed_expenses_paid"]) == 400.00
+    assert float(ps2["total_expenses"]) == 550.00
+    assert float(ps2["money_left_present"]) == 450.00  # 1000 - 150 - 400 = 450
+
+    # 5. Admin reverts Borrowed Expense back to UNPAID
+    unpay_res = client.post(f"/expenses/{borrowed_id}/unpay", headers=admin_headers)
+    assert unpay_res.status_code == 200
+    assert unpay_res.json()["paid"] is False
+
+    ps3 = client.get(f"/summary/period?period=week&date={d}", headers=admin_headers).json()
+    assert float(ps3["money_left_present"]) == 850.00
+    assert float(ps3["borrowed_expenses_unpaid"]) == 400.00
+
 
 

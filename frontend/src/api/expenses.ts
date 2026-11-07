@@ -1,6 +1,6 @@
 import { apiClient } from './client'
 
-export type ExpenseCategory = 'feed' | 'other'
+export type ExpenseCategory = 'feed' | 'crates' | 'other' | 'borrowed'
 
 export interface Expense {
   id: number
@@ -8,6 +8,10 @@ export interface Expense {
   name: string
   quantity?: string | null
   amount: string | number
+  is_borrowed?: boolean
+  paid?: boolean
+  paid_by?: number | null
+  paid_at?: string | null
   business_date: string
   created_by: number
   created_by_name?: string | null
@@ -22,6 +26,7 @@ export interface CreateExpensePayload {
   name?: string
   quantity?: string
   amount: number
+  is_borrowed?: boolean
   business_date?: string
 }
 
@@ -36,6 +41,7 @@ export interface UpdateExpensePayload {
   name?: string
   quantity?: string
   amount?: number
+  is_borrowed?: boolean
 }
 
 export interface GetExpensesParams {
@@ -64,5 +70,11 @@ export const expensesApi = {
 
   voidExpense: (id: number) =>
     apiClient.post<Expense>(`/expenses/${id}/void`).then((r) => r.data),
+
+  markPaid: (id: number) =>
+    apiClient.post<Expense>(`/expenses/${id}/pay`).then((r) => r.data),
+
+  markUnpaid: (id: number) =>
+    apiClient.post<Expense>(`/expenses/${id}/unpay`).then((r) => r.data),
 }
 

@@ -1,10 +1,10 @@
 """Pydantic v2 schemas for request validation and response serialization."""
 
-from datetime import datetime, date
+from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, List
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing import List, Optional
 
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # --- Auth Schemas ---
 
@@ -122,18 +122,23 @@ class EventResponse(BaseModel):
 # --- Expense Schemas ---
 
 class ExpenseCreate(BaseModel):
-    category: str = Field(..., pattern="^(feed|other)$")
+    category: str = Field(..., pattern="^(feed|crates|other|borrowed)$")
     name: Optional[str] = None
     quantity: Optional[str] = None
     amount: Decimal = Field(..., ge=0)
+    is_borrowed: bool = False
     business_date: Optional[date] = None
 
     @model_validator(mode="after")
     def validate_name_by_category(self):
-        if self.category == "other" and not (self.name and self.name.strip()):
-            raise ValueError("Name is required when expense category is 'other'")
-        if self.category == "feed" and not self.name:
+        if self.category == "borrowed":
+            self.is_borrowed = True
+        if self.category in ("other", "borrowed") and not (self.name and self.name.strip()):
+            raise ValueError(f"Name is required when expense category is '{self.category}'")
+        if self.category == "feed" and not (self.name and self.name.strip()):
             self.name = "Feed"
+        if self.category == "crates" and not (self.name and self.name.strip()):
+            self.name = "Crates"
         return self
 
 
@@ -144,10 +149,11 @@ class ExpenseCreateResponse(BaseModel):
 
 
 class ExpenseUpdate(BaseModel):
-    category: Optional[str] = Field(None, pattern="^(feed|other)$")
+    category: Optional[str] = Field(None, pattern="^(feed|crates|other|borrowed)$")
     name: Optional[str] = None
     quantity: Optional[str] = None
     amount: Optional[Decimal] = Field(None, ge=0)
+    is_borrowed: Optional[bool] = None
 
 
 class ExpenseResponse(BaseModel):
@@ -156,6 +162,10 @@ class ExpenseResponse(BaseModel):
     name: str
     quantity: Optional[str] = None
     amount: Decimal
+    is_borrowed: bool = False
+    paid: bool = True
+    paid_by: Optional[int] = None
+    paid_at: Optional[datetime] = None
     business_date: date
     created_by: int
     created_by_name: Optional[str] = None
@@ -218,7 +228,11 @@ class DailyBookResponse(BaseModel):
     borrowed_amount: Decimal = Decimal("0.00")
     total_sales_amount: Decimal = Decimal("0.00")
     feed: Decimal
+    crates: Decimal = Decimal("0.00")
     other: Decimal
+    borrowed_expenses_paid: Decimal = Decimal("0.00")
+    borrowed_expenses_unpaid: Decimal = Decimal("0.00")
+    unpaid_borrowed_expenses_all_time: Decimal = Decimal("0.00")
     total_expenses: Decimal
     net_margin: Decimal
     projected_net_margin: Decimal = Decimal("0.00")
@@ -247,7 +261,10 @@ class DailyFinancialSummaryItem(BaseModel):
     borrowed_amount: Decimal
     total_sales_value: Decimal
     feed_expenses: Decimal
+    crates_expenses: Decimal = Decimal("0.00")
     other_expenses: Decimal
+    borrowed_expenses_paid: Decimal = Decimal("0.00")
+    borrowed_expenses_unpaid: Decimal = Decimal("0.00")
     total_expenses: Decimal
     net_cash_flow: Decimal
     closing_money: Decimal
@@ -275,13 +292,17 @@ class PeriodExpenseItem(BaseModel):
     name: str
     quantity: Optional[str] = None
     amount: Decimal
+    is_borrowed: bool = False
+    paid: bool = True
+    paid_by: Optional[int] = None
+    paid_at: Optional[datetime] = None
     created_by_name: str
     created_at: datetime
 
 
 class FinancialTransactionItem(BaseModel):
     id: str
-    kind: str  # "sale_cash", "sale_borrowed", "expense_feed", "expense_other", "settlement"
+    kind: str  # "sale_cash", "sale_borrowed", "expense_feed", "expense_crates", "expense_other", "expense_borrowed", "settlement"
     business_date: date
     occurred_at: datetime
     title: str
@@ -309,11 +330,16 @@ class PeriodSummaryResponse(BaseModel):
     borrowed_paid_amount: Decimal
     total_sales_amount: Decimal
     feed_expenses: Decimal
+    crates_expenses: Decimal = Decimal("0.00")
     other_expenses: Decimal
+    borrowed_expenses_paid: Decimal = Decimal("0.00")
+    borrowed_expenses_unpaid: Decimal = Decimal("0.00")
+    unpaid_borrowed_expenses_all_time: Decimal = Decimal("0.00")
     total_expenses: Decimal
     money_left_present: Decimal
     money_left_with_borrowed: Decimal
     borrowed_sales: List[EventResponse]
+    borrowed_expenses: List[ExpenseResponse] = Field(default_factory=list)
     daily_financials: List[DailyFinancialSummaryItem] = Field(default_factory=list)
     expenses: List[PeriodExpenseItem] = Field(default_factory=list)
     financial_transactions: List[FinancialTransactionItem] = Field(default_factory=list)

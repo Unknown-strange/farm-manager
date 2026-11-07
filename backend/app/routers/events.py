@@ -2,34 +2,34 @@
 
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from typing import Optional, List
-from fastapi import APIRouter, Depends, Header, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import select
+from typing import List, Optional
 
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.config import settings
 from app.database import get_db
-from app.models import EggEvent, DailyClosing, User, Setting
-from app.schemas import EventCreate, EventUpdate, EventResponse
-from app.security import (
-    get_current_user,
-    require_permission,
-    scope_events,
-    get_business_date,
-)
+from app.models import DailyClosing, EggEvent, Setting, User
 from app.permissions import (
-    EVENTS_CREATE,
-    EVENTS_READ_OWN,
-    EVENTS_READ_ALL,
-    EVENTS_EDIT_OWN,
-    EVENTS_EDIT_ALL,
-    EVENTS_VOID_OWN,
-    EVENTS_VOID_ALL,
     CLOSINGS_MANAGE,
+    EVENTS_CREATE,
+    EVENTS_EDIT_ALL,
+    EVENTS_EDIT_OWN,
+    EVENTS_READ_ALL,
+    EVENTS_READ_OWN,
+    EVENTS_VOID_ALL,
+    EVENTS_VOID_OWN,
     has_permission,
 )
-from app.config import settings
-from app.services.book import assert_stock_non_negative
+from app.schemas import EventCreate, EventResponse, EventUpdate
+from app.security import (
+    get_business_date,
+    require_permission,
+    scope_events,
+)
 from app.services.audit import record_audit
+from app.services.book import assert_stock_non_negative
 
 router = APIRouter(prefix="/events", tags=["events"])
 

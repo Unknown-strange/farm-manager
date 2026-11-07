@@ -192,7 +192,7 @@ export function Entries() {
               value={formatEggs(dayEggsGotten, perCrate)}
               helper={`= ${dayEggsGotten} eggs received`}
               icon={<PackagePlus size={20} />}
-              variant="neutral"
+              variant="intake"
             />
             <StatCard
               label="Total Cracked Eggs"

@@ -262,14 +262,27 @@ test('Entries daily totals and Summary period filters + Borrowed settlement wiri
   const requirePermSrc = fs.readFileSync(path.join(srcDir, 'auth/RequirePermission.tsx'), 'utf8')
   assert.ok(requirePermSrc.includes('some'), 'RequirePermission must support comma-separated multi-permission OR checks')
 
-  // End of Day reconciliation actuals and unlock mechanism
+  // Manual Entry (BeginningEntry.tsx) reconciliation actuals and unlock mechanism
+  assert.ok(beginningSrc.includes('1. Physical Eggs in Storeroom'), 'BeginningEntry must have physical storeroom count field')
+  assert.ok(beginningSrc.includes('2. Actual Cash Gotten (Revenue)'), 'BeginningEntry must have actual cash gotten field')
+  assert.ok(beginningSrc.includes('3. Actual Expenses Made'), 'BeginningEntry must have actual expenses made field')
+  assert.ok(beginningSrc.includes('4. Actual Eggs Sold Today'), 'BeginningEntry must have actual eggs sold field')
+  assert.ok(beginningSrc.includes('Lock Day with Actuals'), 'BeginningEntry must allow locking with actuals')
+  assert.ok(beginningSrc.includes('Re-adjust / Unlock Day'), 'BeginningEntry must allow unlocking day for re-adjustments')
+
   const endOfDaySrc = fs.readFileSync(path.join(srcDir, 'pages/EndOfDay.tsx'), 'utf8')
-  assert.ok(endOfDaySrc.includes('1. Physical Eggs in Storeroom'), 'EndOfDay must have physical storeroom count field')
-  assert.ok(endOfDaySrc.includes('2. Actual Cash Gotten (Revenue)'), 'EndOfDay must have actual cash gotten field')
-  assert.ok(endOfDaySrc.includes('3. Actual Expenses Made'), 'EndOfDay must have actual expenses made field')
-  assert.ok(endOfDaySrc.includes('4. Actual Eggs Sold Today'), 'EndOfDay must have actual eggs sold field')
-  assert.ok(endOfDaySrc.includes('Lock Day with Actuals'), 'EndOfDay must allow locking with actuals')
-  assert.ok(endOfDaySrc.includes('Re-adjust / Unlock Day'), 'EndOfDay must allow unlocking day for re-adjustments')
+  assert.ok(endOfDaySrc.includes('Expense Summary'), 'EndOfDay must have Expense Summary section')
+  assert.ok(endOfDaySrc.includes('Feed Expenses'), 'EndOfDay must have Feed Expenses category card')
+  assert.ok(endOfDaySrc.includes('Crates Expenses'), 'EndOfDay must have Crates Expenses category card')
+  assert.ok(endOfDaySrc.includes('Other Expenses'), 'EndOfDay must have Other Expenses category card')
+  assert.ok(endOfDaySrc.includes('/beginning-entry?date='), 'EndOfDay must link to BeginningEntry for reconciliation')
+
+  const unifiedCardSrc = fs.readFileSync(path.join(srcDir, 'components/UnifiedCard.tsx'), 'utf8')
+  assert.ok(unifiedCardSrc.includes('VARIANT_STYLES'), 'UnifiedCard must define VARIANT_STYLES matching Manual Entry')
+  assert.ok(unifiedCardSrc.includes('border-2'), 'UnifiedCard must use border-2 from Manual Entry')
+
+  const statCardSrc = fs.readFileSync(path.join(srcDir, 'components/StatCard.tsx'), 'utf8')
+  assert.ok(statCardSrc.includes('UnifiedCard'), 'StatCard must forward to UnifiedCard')
 
   const closingsApiSrc = fs.readFileSync(path.join(srcDir, 'api/closings.ts'), 'utf8')
   assert.ok(closingsApiSrc.includes('unlockDay'), 'closingsApi must provide unlockDay endpoint')
@@ -279,7 +292,15 @@ test('Entries daily totals and Summary period filters + Borrowed settlement wiri
 
   const dashboardSrc = fs.readFileSync(path.join(srcDir, 'pages/Dashboard.tsx'), 'utf8')
   assert.ok(dashboardSrc.includes('Reconciled & Locked'), 'Dashboard must display Reconciled & Locked badge')
+  assert.ok(dashboardSrc.includes('Borrowed Expenses'), 'Dashboard must include Borrowed Expenses card')
+  assert.ok(dashboardSrc.includes('Crates expense'), 'Dashboard must include Crates expense in daily book')
   assert.ok(historySrc.includes('Reconciled'), 'History page must display Reconciled badge on reconciled days')
+
+  const addExpenseSrc = fs.readFileSync(path.join(srcDir, 'pages/AddExpense.tsx'), 'utf8')
+  assert.ok(addExpenseSrc.includes('Crates'), 'AddExpense must support Crates category')
+  assert.ok(addExpenseSrc.includes('Borrowed Expense'), 'AddExpense must support Borrowed Expense category')
+  assert.ok(endOfDaySrc.includes('Borrowed Expenses Management (Admin Only)'), 'Summary must include Borrowed Expenses Management section')
+  assert.ok(endOfDaySrc.includes('Crates Expenses'), 'Summary must include Crates Expenses breakdown')
 })
 
 test('Backend Health check on website opening and extended login timeout (5 mins)', () => {

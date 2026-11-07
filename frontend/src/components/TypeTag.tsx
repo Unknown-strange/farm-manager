@@ -1,4 +1,13 @@
-export type EventTagType = 'sale' | 'sold' | 'received' | 'cracked' | 'expense' | 'feed' | 'other'
+export type EventTagType =
+  | 'sale'
+  | 'sold'
+  | 'received'
+  | 'cracked'
+  | 'expense'
+  | 'feed'
+  | 'crates'
+  | 'other'
+  | 'borrowed'
 
 const TYPE_CONFIG: Record<EventTagType, { label: string; className: string }> = {
   sale: { label: 'Sale', className: 'badge-sale' },
@@ -7,7 +16,9 @@ const TYPE_CONFIG: Record<EventTagType, { label: string; className: string }> = 
   cracked: { label: 'Cracked', className: 'badge-cracked' },
   expense: { label: 'Expense', className: 'badge-neutral' },
   feed: { label: 'Feed', className: 'badge-neutral' },
+  crates: { label: 'Crates', className: 'badge-received' },
   other: { label: 'Other', className: 'badge-neutral' },
+  borrowed: { label: 'Borrowed Expense', className: 'badge-cracked' },
 }
 
 interface TypeTagProps {

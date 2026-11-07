@@ -1,27 +1,33 @@
 """FastAPI application entrypoint with middleware, routers, and startup checks."""
 
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from fastapi import Depends, FastAPI, Request, HTTPException, status
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.exceptions import RequestValidationError
+
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import engine, get_db
-from sqlalchemy import inspect, text
 from app.routers import (
     auth,
+    closings,
     events,
     expenses,
-    summary,
-    closings,
-    users,
-    settings as settings_router,
     reports,
+    summary,
+    users,
 )
+from app.routers import (
+    settings as settings_router,
+)
+
+logger = logging.getLogger("app.main")
 
 
 def _ensure_borrowed_columns() -> None:
@@ -69,17 +75,40 @@ def _ensure_borrowed_columns() -> None:
                     conn.execute(text("ALTER TABLE daily_closings ADD COLUMN actual_expenses NUMERIC(12, 2)"))
                 if "actual_sold_eggs" not in dc_cols:
                     conn.execute(text("ALTER TABLE daily_closings ADD COLUMN actual_sold_eggs INTEGER"))
-    except Exception:
-        pass
+        if "expenses" in table_names:
+            e_cols = {c["name"] for c in insp.get_columns("expenses")}
+            with engine.begin() as conn:
+                if "is_borrowed" not in e_cols:
+                    conn.execute(text("ALTER TABLE expenses ADD COLUMN is_borrowed BOOLEAN NOT NULL DEFAULT FALSE"))
+                if "paid" not in e_cols:
+                    conn.execute(text("ALTER TABLE expenses ADD COLUMN paid BOOLEAN NOT NULL DEFAULT TRUE"))
+                if "paid_by" not in e_cols:
+                    conn.execute(text("ALTER TABLE expenses ADD COLUMN paid_by BIGINT"))
+                if "paid_at" not in e_cols:
+                    conn.execute(text("ALTER TABLE expenses ADD COLUMN paid_at TIMESTAMP WITH TIME ZONE"))
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text("ALTER TABLE expenses DROP CONSTRAINT IF EXISTS check_expense_category"))
+                    conn.execute(
+                        text(
+                            "ALTER TABLE expenses ADD CONSTRAINT check_expense_category "
+                            "CHECK (category IN ('feed', 'crates', 'other', 'borrowed'))"
+                        )
+                    )
+            except Exception as exc:
+                logger.debug("Constraint update skipped: %s", exc)
+    except Exception as exc:
+        logger.debug("Auto migration skipped: %s", exc)
 
 
 def _auto_initialize_database() -> None:
     """Automatically creates tables, applies column upgrades, and seeds the default admin & settings if the database is empty."""
     try:
-        from app.database import Base, SessionLocal
-        from app.models import User, Setting
-        from app.security import hash_password
         from sqlalchemy import select
+
+        from app.database import Base, SessionLocal
+        from app.models import Setting, User
+        from app.security import hash_password
 
         Base.metadata.create_all(bind=engine)
         _ensure_borrowed_columns()
@@ -102,8 +131,8 @@ def _auto_initialize_database() -> None:
                 if not db.get(Setting, 1):
                     db.add(Setting(id=1, eggs_per_crate=30, currency="GH₵"))
                 db.commit()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Auto database initialization encountered error: %s", exc)
 
 
 @asynccontextmanager
@@ -139,7 +168,7 @@ app.add_middleware(
 async def http_exception_handler(request: Request, exc: HTTPException):
     if isinstance(exc.detail, dict) and "code" in exc.detail:
         return JSONResponse(status_code=exc.status_code, content=exc.detail)
-    
+
     code_map = {
         400: "BAD_REQUEST",
         401: "UNAUTHORIZED",

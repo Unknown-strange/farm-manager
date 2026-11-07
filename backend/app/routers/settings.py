@@ -1,19 +1,20 @@
 """Settings router: farm configurations such as eggs per crate and currency."""
 
 from decimal import Decimal
+
 from fastapi import APIRouter, Depends
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import DailyClosing, EggEvent, Setting, User
+from app.permissions import SETTINGS_MANAGE
 from app.schemas import SettingsResponse, SettingsUpdate
 from app.security import (
     get_business_date,
     get_current_user,
     require_permission,
 )
-from app.permissions import SETTINGS_MANAGE
 from app.services.audit import record_audit
 from app.services.book import (
     _net_egg_change_case,
